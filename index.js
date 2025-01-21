@@ -83,7 +83,7 @@ app.post("/get_text", (req, res) => {
       error: error.message,
     });
   }
-});s
+});
 
 // 서버 실행
 app.listen(PORT, () => {
