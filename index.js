@@ -4,17 +4,10 @@ const path = require("path");
 const spawn = require("child_process").spawn;
 const { Pool } = require("pg");
 require("dotenv").config();
+const salesRoutes = require("./routes/salesRoutes");
 
 const app = express();
 const PORT = 8000;
-
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-});
 
 app.use(cors());
 app.use(express.json());
@@ -112,6 +105,9 @@ pool.connect((err, client, release) => {
   console.log("Successfully connected to PostgreSQL database");
   release();
 });
+
+// 라우트 설정
+app.use("/api/sales", salesRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
