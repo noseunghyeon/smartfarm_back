@@ -2,12 +2,52 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const spawn = require("child_process").spawn;
-const app = express();
+const { Pool } = require("pg");
+require("dotenv").config();
 
+const app = express();
 const PORT = 8000;
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+});
 
 app.use(cors());
 app.use(express.json());
+
+// 데이터베이스 연결 테스트
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.json({ success: true, timestamp: result.rows[0].now });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 판매 데이터 조회 API
+app.get("/api/sales", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM sales_data_2024");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// TOP 10 데이터 조회 API
+app.get("/api/top10", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM top_10_sales");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // 루트 경로 호출
 app.get("/", (request, response) => {
@@ -16,28 +56,6 @@ app.get("/", (request, response) => {
 });
 
 const pythonExePath = path.join("python");
-
-app.get("/get_text", (request, response) => {
-  const scriptPath = path.join(__dirname, "app.py");
-  const result = spawn(pythonExePath, [scriptPath]);
-
-  let resData = "";
-
-  result.stdout.on("data", (data) => {
-    resData += data.toString();
-  });
-
-  result.on("close", (code) => {
-    if (code === 0) {
-      // const jsonData = JSON.parse(resData);
-      response.json(resData);
-    } else {
-      response
-        .status(500)
-        .json({ error: `Child process exited with code ${code}` });
-    }
-  });
-});
 
 app.post("/get_text", (req, res) => {
   try {
@@ -86,7 +104,23 @@ app.post("/get_text", (req, res) => {
   }
 });
 
-// 서버 실행
+// 서버 시작 시 데이터베이스 연결 테스트
+pool.connect((err, client, release) => {
+  if (err) {
+    return console.error("Error acquiring client", err.stack);
+  }
+  console.log("Successfully connected to PostgreSQL database");
+  release();
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+// 프로세스 종료 시 Pool 정리
+process.on("SIGINT", () => {
+  pool.end(() => {
+    console.log("Pool has ended");
+    process.exit(0);
+  });
 });
