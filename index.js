@@ -12,6 +12,7 @@ app.use(express.json());
 // 루트 경로 호출
 app.get("/", (request, response) => {
   console.log(`Server is running on port ${PORT}`);
+  response.send("Server is running");
 });
 
 const pythonExePath = path.join("python");
@@ -20,7 +21,7 @@ app.get("/get_text", (request, response) => {
   const scriptPath = path.join(__dirname, "app.py");
   const result = spawn(pythonExePath, [scriptPath]);
 
-  let = resData = "";
+  let resData = "";
 
   result.stdout.on("data", (data) => {
     resData += data.toString();
@@ -41,7 +42,7 @@ app.get("/get_text", (request, response) => {
 app.post("/get_text", (req, res) => {
   try {
     const scriptPath = path.join(__dirname, "app.py");
-    const pythonProcess = spawn("python", [scriptPath]);
+    const pythonProcess = spawn(pythonExePath, [scriptPath]);
 
     // Python 스크립트로 데이터 전송
     pythonProcess.stdin.write(JSON.stringify(req.body));
