@@ -12,11 +12,11 @@ const {
 
 router.post("/register", postAuth);
 router.post("/login", postLogin);
-router.post("/emailVerification", sendEmailVerification);
-router.put("/update_user/:id", updateUser);
-router.delete("/delete_user/:id", deleteUser);
-router.post("/find_pwd", findPwd);
-router.post("/reset_pwd", resetPwd);
+router.post("/email-verification", sendEmailVerification);
+router.put("/update-user/:id", updateUser);
+router.delete("/delete-user/:id", deleteUser);
+router.post("/find-pwd", findPwd);
+router.post("/reset-pwd", resetPwd);
 router.post("/send-email", sendEmail);
 
 module.exports = router;

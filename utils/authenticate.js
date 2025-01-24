@@ -1,13 +1,25 @@
 const jwt = require("jsonwebtoken");
-const secretKey = "your_secret_key";
+require("dotenv").config();
 
 // 사용자 인증 미들웨어
 function authenticateToken(req, res, next) {
-  const token = req.headers["authorization"];
-  if (!token) return res.sendStatus(401);
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-  jwt.verify(token, secretKey, (err, user) => {
-    if (err) return res.sendStatus(403);
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "인증 토큰이 필요합니다.",
+    });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: "유효하지 않은 토큰입니다.",
+      });
+    }
     req.user = user;
     next();
   });

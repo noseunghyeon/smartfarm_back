@@ -14,6 +14,7 @@ const PORT = 8000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 데이터베이스 연결 테스트
 app.get("/api/test-db", async (req, res) => {
@@ -102,7 +103,7 @@ app.post("/get_text", (req, res) => {
 
 // 라우트 설정
 app.use("/api", postgresqlRouters);
-app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
 app.use("/api", emailRouter);
 
 app.listen(PORT, () => {
