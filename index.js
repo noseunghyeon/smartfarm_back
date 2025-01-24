@@ -101,7 +101,7 @@ app.post("/get_text", (req, res) => {
 });
 
 // 라우트 설정
-app.use("/api/sales", postgresqlRouters);
+app.use("/api", postgresqlRouters);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
