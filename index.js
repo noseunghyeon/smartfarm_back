@@ -6,6 +6,8 @@ const { pool } = require("./database/database");
 
 require("dotenv").config();
 const postgresqlRouters = require("./routes/postgresqlRouters");
+// const authRoutes = require("./routes/authRoutes");
+// const emailRouter = require("./routes/emailRouter");
 
 const app = express();
 const PORT = 8000;
