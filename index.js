@@ -2,7 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const spawn = require("child_process").spawn;
-const { Pool } = require("pg");
+const { pool } = require("./database/database");
+
 require("dotenv").config();
 const salesRoutes = require("./routes/salesRoutes");
 
@@ -95,15 +96,6 @@ app.post("/get_text", (req, res) => {
       error: error.message,
     });
   }
-});
-
-// 서버 시작 시 데이터베이스 연결 테스트
-pool.connect((err, client, release) => {
-  if (err) {
-    return console.error("Error acquiring client", err.stack);
-  }
-  console.log("Successfully connected to PostgreSQL database");
-  release();
 });
 
 // 라우트 설정
