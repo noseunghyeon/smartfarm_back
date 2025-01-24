@@ -5,16 +5,18 @@ const {
   sendEmailVerification,
   findPwd,
   resetPwd,
-} = require("../controllers/PostAuthCtrl");
-const { updateAuth } = require("../controllers/UpdateAuthCtrl");
-const { deleteAuth } = require("../controllers/DeleteAuthCtrl");
+  updateUser,
+  deleteUser,
+  sendEmail,
+} = require("../controllers/authController");
 
 router.post("/register", postAuth);
 router.post("/login", postLogin);
 router.post("/emailVerification", sendEmailVerification);
-router.put("/update_user/:id", updateAuth);
-router.delete("/delete_user/:id", deleteAuth);
+router.put("/update_user/:id", updateUser);
+router.delete("/delete_user/:id", deleteUser);
 router.post("/find_pwd", findPwd);
 router.post("/reset_pwd", resetPwd);
+router.post("/send-email", sendEmail);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 -- Auth 테이블 생성
-CREATE TABLE "Auth" (
+CREATE TABLE Auth (
     "user_id" SERIAL NOT NULL,          -- 자동 증가 ID
     "email" VARCHAR(100) NOT NULL,      -- 이메일
     "password" VARCHAR(255) NOT NULL,   -- 비밀번호
@@ -9,7 +9,7 @@ CREATE TABLE "Auth" (
 );
 
 -- Post 테이블 생성
-CREATE TABLE "write" (
+CREATE TABLE Write (
     "post_id" SERIAL NOT NULL,          -- 게시글 ID
     "user_id" INT NOT NULL,             -- 작성자 ID (외래 키)
     "title" VARCHAR(50) NOT NULL,       -- 게시글 제목
