@@ -12,7 +12,7 @@ exports.postAuth = async (request, response) => {
 
   try {
     const result = await database.pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT * FROM Auth WHERE email = $1",
       [email]
     );
 
@@ -28,7 +28,7 @@ exports.postAuth = async (request, response) => {
 
     // 사용자 정보 DB에 저장
     await database.pool.query(
-      "INSERT INTO users (email, password, birth_date) VALUES ($1, $2, $3)",
+      "INSERT INTO Auth (email, password, birth_date) VALUES ($1, $2, $3)",
       [email, hashPassword, birth_date]
     );
 
@@ -104,7 +104,7 @@ exports.postLogin = async (request, response) => {
     console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
     const result = await database.pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT * FROM Auth WHERE email = $1",
       [email]
     );
 
@@ -148,7 +148,7 @@ exports.findPwd = async (req, res) => {
   try {
     // 사용자 존재 여부 확인
     const result = await database.pool.query(
-      "SELECT * FROM users WHERE email = $1",
+      "SELECT * FROM Auth WHERE email = $1",
       [email]
     );
 
@@ -207,7 +207,7 @@ exports.resetPwd = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // DB에서 비밀번호 업데이트
-    await database.pool.query("UPDATE users SET password = $1 WHERE id = $2", [
+    await database.pool.query("UPDATE Auth SET password = $1 WHERE id = $2", [
       hashedPassword,
       decoded.userId,
     ]);

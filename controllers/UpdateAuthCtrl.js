@@ -8,7 +8,7 @@ exports.updateAuth = async (request, response) => {
     const hashPassword = await bcrypt.hash(password, 10);
 
     await database.pool.query(
-      "UPDATE users SET password = $1 WHERE email = $2",
+      "UPDATE Auth SET password = $1 WHERE email = $2",
       [hashPassword, email]
     );
 

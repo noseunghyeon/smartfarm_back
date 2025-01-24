@@ -8,10 +8,9 @@ exports.deleteAuth = async (request, response) => {
   }
 
   try {
-    const result = await database.pool.query(
-      "DELETE FROM users WHERE id = $1",
-      [userID]
-    );
+    const result = await database.pool.query("DELETE FROM Auth WHERE id = $1", [
+      userID,
+    ]);
 
     if (result.rowCount === 0) {
       return response.status(404).json({ msg: "회원정보가 없습니다." });
