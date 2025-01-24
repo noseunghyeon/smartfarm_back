@@ -5,7 +5,7 @@ const spawn = require("child_process").spawn;
 const { pool } = require("./database/database");
 
 require("dotenv").config();
-const salesRoutes = require("./routes/salesRoutes");
+const postgresqlRouters = require("./routes/postgresqlRouters");
 
 const app = express();
 const PORT = 8000;
@@ -99,7 +99,7 @@ app.post("/get_text", (req, res) => {
 });
 
 // 라우트 설정
-app.use("/api/sales", salesRoutes);
+app.use("/api/sales", postgresqlRouters);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
