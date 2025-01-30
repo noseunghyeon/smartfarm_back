@@ -181,6 +181,7 @@ exports.postLogin = async (request, response) => {
 };
 
 exports.sendEmailVerification = async (request, response) => {
+  console.log("이메일 인증 요청 수신:", request.body);
   const { email } = request.body;
 
   try {
@@ -190,7 +191,7 @@ exports.sendEmailVerification = async (request, response) => {
     ).toString();
 
     const transporter = nodemailer.createTransport({
-      host: "smtp.naver.com",
+      host: "smtp.gmail.com",
       port: 465,
       secure: true,
       auth: {

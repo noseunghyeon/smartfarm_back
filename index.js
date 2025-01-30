@@ -12,7 +12,13 @@ const emailRouter = require("./routes/emailRouter");
 const app = express();
 const PORT = 8000;
 
-app.use(cors());
+// CORS 설정
+app.use(cors({
+  origin: "http://localhost:3000", // 프론트엔드의 URL
+  methods: ["GET", "POST", "PUT", "DELETE"], // 허용할 HTTP 메서드
+  credentials: true // 쿠키와 같은 인증 정보를 포함할지 여부
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
