@@ -11,11 +11,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-<<<<<<< HEAD
+
     "axios": "^1.7.9",
-=======
+
     "bcrypt": "^5.1.1",
->>>>>>> 908967971d3fd5feca11a5db76f2c54616e327bc
+
     "child_process": "^1.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
