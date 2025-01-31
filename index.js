@@ -3,24 +3,39 @@ const cors = require("cors");
 const path = require("path");
 const spawn = require("child_process").spawn;
 const { pool } = require("./database/database");
+const authRoutes = require("./routes/authRoutes");
+const jwt = require("jsonwebtoken");
 
 require("dotenv").config();
 const postgresqlRouters = require("./routes/postgresqlRouters");
-const authRoutes = require("./routes/authRoutes");
 const emailRouter = require("./routes/emailRouter");
 
 const app = express();
 const PORT = 8000;
 
 // CORS 설정
-app.use(cors({
-  origin: "http://localhost:3000", // 프론트엔드의 URL
-  methods: ["GET", "POST", "PUT", "DELETE"], // 허용할 HTTP 메서드
-  credentials: true // 쿠키와 같은 인증 정보를 포함할지 여부
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000", // 프론트엔드의 URL
+    methods: ["GET", "POST", "PUT", "DELETE"], // 허용할 HTTP 메서드
+    credentials: true, // 쿠키와 같은 인증 정보를 포함할지 여부
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// JWT 인증 미들웨어
+const authenticateToken = (req, res, next) => {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
 
 // 데이터베이스 연결 테스트
 app.get("/api/test-db", async (req, res) => {

@@ -1,4 +1,5 @@
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
 const {
   postAuth,
   postLogin,
@@ -8,7 +9,9 @@ const {
   updateUser,
   deleteUser,
   sendEmail,
+  getUserInfo,
 } = require("../controllers/authController");
+const authenticateToken = require("../middlewares/authMiddleware");
 
 router.post("/register", postAuth);
 router.post("/login", postLogin);
@@ -18,5 +21,6 @@ router.delete("/delete-user/:id", deleteUser);
 router.post("/find-pwd", findPwd);
 router.post("/reset-pwd", resetPwd);
 router.post("/send-email", sendEmail);
+router.get("/mypage", authenticateToken, getUserInfo);
 
 module.exports = router;

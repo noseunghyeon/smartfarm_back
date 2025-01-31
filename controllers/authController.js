@@ -232,6 +232,27 @@ exports.resetPwd = async (request, response) => {
   // 비밀번호 재설정 로직 구현
 };
 
+exports.getUserInfo = async (req, res) => {
+  const userId = req.user.id; // JWT 토큰에서 사용자 ID를 가져온다고 가정
+
+  try {
+    const result = await database.pool.query(
+      "SELECT email, user_id, created_at FROM Auth WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ msg: "사용자 정보를 찾을 수 없습니다." });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ msg: "사용자 정보 로드 실패", error: error.message });
+  }
+};
+
 module.exports = {
   postAuth: exports.postAuth,
   postLogin: exports.postLogin,
@@ -241,4 +262,5 @@ module.exports = {
   updateUser: exports.updateUser,
   deleteUser: exports.deleteUser,
   sendEmail: exports.sendEmail,
+  getUserInfo: exports.getUserInfo,
 };
