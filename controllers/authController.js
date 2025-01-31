@@ -93,8 +93,8 @@ exports.sendEmail = async (req, res) => {
   }
 
   const transporter = nodemailer.createTransport({
-    host: "52.91.184.147",
-    port: 5432,
+    host: "smtp.naver.com",
+    port: 465,
     secure: true,
     auth: {
       user: process.env.EMAIL,
@@ -191,7 +191,7 @@ exports.sendEmailVerification = async (request, response) => {
     ).toString();
 
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
+      host: "smtp.naver.com",
       port: 465,
       secure: true,
       auth: {
