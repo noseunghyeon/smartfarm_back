@@ -63,9 +63,10 @@ exports.deleteUser = async (request, response) => {
   }
 
   try {
-    const result = await database.pool.query("DELETE FROM Auth WHERE id = $1", [
-      userID,
-    ]);
+    const result = await database.pool.query(
+      "DELETE FROM Auth WHERE user_id = $1",
+      [userID]
+    );
 
     if (result.rowCount === 0) {
       return response.status(404).json({ msg: "회원정보가 없습니다." });
@@ -73,9 +74,10 @@ exports.deleteUser = async (request, response) => {
 
     return response.status(200).json({ msg: "회원정보 삭제 성공" });
   } catch (error) {
-    return response
-      .status(500)
-      .json({ msg: "회원정보 삭제 실패", error: error.message });
+    return response.status(500).json({
+      msg: "회원정보 삭제 실패",
+      error: error.message,
+    });
   }
 };
 
@@ -133,16 +135,93 @@ exports.sendEmail = async (req, res) => {
 exports.postLogin = async (request, response) => {
   const { email, password } = request.body;
   try {
-    // 로그인 로직 구현
+    const result = await database.pool.query(
+      "SELECT * FROM Auth WHERE email = $1",
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return response.status(401).json({
+        msg: "이메일 또는 비밀번호가 일치하지 않습니다.",
+        success: false,
+      });
+    }
+
+    const user = result.rows[0];
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return response.status(401).json({
+        msg: "이메일 또는 비밀번호가 일치하지 않습니다.",
+        success: false,
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user.user_id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    return response.status(201).json({
+      msg: "로그인 성공",
+      success: true,
+      token: token,
+      data: {
+        user_id: user.user_id,
+        email: user.email,
+      },
+    });
   } catch (error) {
-    return response
-      .status(500)
-      .json({ msg: "로그인 오류", error: error.message });
+    return response.status(500).json({
+      msg: "로그인 오류",
+      error: error.message,
+    });
   }
 };
 
 exports.sendEmailVerification = async (request, response) => {
-  // 이메일 인증 로직 구현
+  console.log("이메일 인증 요청 수신:", request.body);
+  const { email } = request.body;
+
+  try {
+    // 인증 코드 생성 (6자리)
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "[SmartFarm] 이메일 인증 코드",
+      text: `인증 코드: ${verificationCode}\n\n이 코드는 10분간 유효합니다.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return response.status(200).json({
+      success: true,
+      message: "인증 코드가 발송되었습니다.",
+      data: { verificationCode },
+    });
+  } catch (error) {
+    console.error("이메일 인증 코드 발송 실패:", error);
+    return response.status(500).json({
+      success: false,
+      message: "인증 코드 발송에 실패했습니다.",
+      error: error.message,
+    });
+  }
 };
 
 exports.findPwd = async (request, response) => {

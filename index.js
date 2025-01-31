@@ -12,8 +12,15 @@ const emailRouter = require("./routes/emailRouter");
 const app = express();
 const PORT = 8000;
 
-app.use(cors());
+// CORS 설정
+app.use(cors({
+  origin: "http://localhost:3000", // 프론트엔드의 URL
+  methods: ["GET", "POST", "PUT", "DELETE"], // 허용할 HTTP 메서드
+  credentials: true // 쿠키와 같은 인증 정보를 포함할지 여부
+}));
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 데이터베이스 연결 테스트
 app.get("/api/test-db", async (req, res) => {
@@ -102,7 +109,7 @@ app.post("/get_text", (req, res) => {
 
 // 라우트 설정
 app.use("/api", postgresqlRouters);
-app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
 app.use("/api", emailRouter);
 
 app.listen(PORT, () => {
