@@ -1,5 +1,5 @@
 // 데이터베이스 모듈 또는 기타 필요한 모듈 가져오기
-const db = require("./database"); // 예시로 데이터베이스 모듈을 가져옴
+const db = require("../database/database"); // 예시로 데이터베이스 모듈을 가져옴
 
 // 데이터 조회 함수 예시
 async function getData(req, res) {
