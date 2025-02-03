@@ -170,6 +170,7 @@ exports.postLogin = async (request, response) => {
       data: {
         user_id: user.user_id,
         email: user.email,
+        birth_date: user.birth_date,
       },
     });
   } catch (error) {
@@ -237,7 +238,7 @@ exports.getUserInfo = async (req, res) => {
 
   try {
     const result = await database.pool.query(
-      "SELECT email, user_id, created_at FROM Auth WHERE user_id = $1",
+      "SELECT email, birth_date, user_id, created_at FROM Auth WHERE user_id = $1",
       [userId]
     );
 
