@@ -20,3 +20,53 @@ CREATE TABLE Write (
     CONSTRAINT "FK_Auth_TO_Post_1" FOREIGN KEY ("user_id") REFERENCES "Auth" ("user_id") -- 외래 키
     ON DELETE CASCADE                   -- 작성자 삭제 시 게시글 삭제
 );
+
+CREATE TABLE "top_10_sales" (
+	"Key"	VARCHAR(255)		NOT NULL,
+	"category"	VARCHAR(50)		NULL,
+	"previous_year"	NUMERIC		NULL,
+	"base_date"	NUMERIC		NULL
+);
+
+CREATE TABLE "sales_data_2024" (
+	"week"	VARCHAR(10)		NOT NULL,
+	"persimmon"	NUMERIC		NULL,
+	"mandarin"	NUMERIC		NULL,
+	"dried_pepper"	NUMERIC		NULL,
+	"dried_anchovy"	NUMERIC		NULL,
+	"sweet_potato"	NUMERIC		NULL,
+	"oyster"	NUMERIC		NULL,
+	"seaweed"	NUMERIC		NULL,
+	"green_onion"	NUMERIC		NULL,
+	"strawberry"	NUMERIC		NULL,
+	"garlic"	NUMERIC		NULL,
+	"radish"	NUMERIC		NULL,
+	"squid"	NUMERIC		NULL,
+	"banana"	NUMERIC		NULL,
+	"cherry_tomato"	NUMERIC		NULL,
+	"pear"	NUMERIC		NULL
+);
+
+ALTER TABLE "Auth" ADD CONSTRAINT "PK_AUTH" PRIMARY KEY (
+	"user_id"
+);
+
+ALTER TABLE "top_10_sales" ADD CONSTRAINT "PK_TOP_10_SALES" PRIMARY KEY (
+	"Key"
+);
+
+ALTER TABLE "Write" ADD CONSTRAINT "PK_POST" PRIMARY KEY (
+	"post_id",
+	"user_id"
+);
+
+ALTER TABLE "sales_data_2024" ADD CONSTRAINT "PK_SALES_DATA_2024" PRIMARY KEY (
+	"week"
+);
+
+ALTER TABLE "Write" ADD CONSTRAINT "FK_Auth_TO_Post_1" FOREIGN KEY (
+	"user_id"
+)
+REFERENCES "Auth" (
+	"user_id"
+);
