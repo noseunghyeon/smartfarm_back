@@ -4,7 +4,7 @@ const path = require("path");
 const spawn = require("child_process").spawn;
 const { pool } = require("./database/database");
 const authRoutes = require("./routes/authRoutes");
-const jwt = require("jsonwebtoken");
+const { authenticateToken } = require("./utils/authenticate");
 
 require("dotenv").config();
 const postgresqlRouters = require("./routes/postgresqlRouters");
@@ -24,18 +24,6 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// JWT 인증 미들웨어
-const authenticateToken = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-};
 
 // 데이터베이스 연결 테스트
 app.get("/api/test-db", async (req, res) => {

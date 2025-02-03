@@ -11,7 +11,7 @@ const {
   sendEmail,
   getUserInfo,
 } = require("../controllers/authController");
-const authenticateToken = require("../middlewares/authMiddleware");
+const { authenticateToken } = require("../utils/authenticate");
 
 router.post("/register", postAuth);
 router.post("/login", postLogin);

@@ -29,7 +29,10 @@ function authenticateToken(req, res, next) {
 function authorizeRoles(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
-      return res.sendStatus(403);
+      return res.status(403).json({
+        success: false,
+        message: "해당 작업에 대한 권한이 없습니다.",
+      });
     }
     next();
   };
