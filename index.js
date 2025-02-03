@@ -5,6 +5,7 @@ const spawn = require("child_process").spawn;
 const { pool } = require("./database/database");
 const authRoutes = require("./routes/authRoutes");
 const { authenticateToken } = require("./utils/authenticate");
+const weatherRoutes = require('./routes/weatherRoutes');
 
 require("dotenv").config();
 const postgresqlRouters = require("./routes/postgresqlRouters");
@@ -114,6 +115,7 @@ app.post("/get_text", (req, res) => {
 app.use("/api", postgresqlRouters);
 app.use("/auth", authRoutes);
 app.use("/api", emailRouter);
+app.use('/', weatherRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
