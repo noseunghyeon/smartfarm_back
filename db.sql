@@ -8,7 +8,7 @@ CREATE TABLE Auth (
     CONSTRAINT "PK_AUTH" PRIMARY KEY ("user_id") -- 기본 키
 );
 
--- Post 테이블 생성
+-- Write 테이블 생성
 CREATE TABLE Write (
     "post_id" SERIAL NOT NULL,          -- 게시글 ID
     "user_id" INT NOT NULL,             -- 작성자 ID (외래 키)
