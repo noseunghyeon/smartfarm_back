@@ -11,6 +11,7 @@ require("dotenv").config();
 const postgresqlRouters = require("./routes/postgresqlRouters");
 const emailRouter = require("./routes/emailRouter");
 const writeRouter = require("./routes/writeRouter");
+const commentsRouter = require("./routes/commentsRoutes");
 
 const app = express();
 const PORT = 8000;
@@ -26,6 +27,7 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/comments", commentsRouter);
 
 // 데이터베이스 연결 테스트
 app.get("/api/test-db", async (req, res) => {

@@ -254,6 +254,26 @@ exports.getUserInfo = async (req, res) => {
   }
 };
 
+// verifyToken 미들웨어 추가
+exports.verifyToken = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ message: "토큰이 제공되지 않았습니다." });
+    }
+
+    const token = authHeader.split(" ")[1]; // "Bearer TOKEN" 형식에서 토큰만 추출
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // 디코딩된 사용자 정보를 요청 객체에 저장
+
+    next();
+  } catch (error) {
+    console.error("토큰 검증 실패:", error);
+    res.status(401).json({ message: "유효하지 않은 토큰입니다." });
+  }
+};
+
 module.exports = {
   postAuth: exports.postAuth,
   postLogin: exports.postLogin,
@@ -264,4 +284,5 @@ module.exports = {
   deleteUser: exports.deleteUser,
   sendEmail: exports.sendEmail,
   getUserInfo: exports.getUserInfo,
+  verifyToken: exports.verifyToken,
 };
