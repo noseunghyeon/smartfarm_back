@@ -49,15 +49,29 @@ for veg in vegetables:
                          model.coef_.round(2))))
     print('절편:', round(model.intercept_, 2))
 
-# 새로운 데이터로 예측하는 예시
-new_data = pd.DataFrame({
-    'avg temp': [20],
-    'max temp': [25],
-    'min temp': [15],
-    'rainFall': [5]
-})
+def predict_prices(temp_data):
+    """
+    온도 데이터를 받아 각 농산물의 가격을 예측하는 함수
+    """
+    predictions = {}
+    
+    for veg in vegetables:
+        predicted_price = models[veg].predict(temp_data)[0]
+        predictions[f"{veg}_price"] = round(predicted_price, 2)
+        predictions[f"{veg}_r2"] = round(scores[veg]['R2'], 4)
+    
+    return predictions
 
-print('\n새로운 데이터에 대한 예측 결과:')
-for veg in vegetables:
-    predicted_price = models[veg].predict(new_data)[0]
-    print(f'{veg}: {predicted_price:.2f}원')
+# 모듈로 실행될 때만 아래 코드 실행
+if __name__ == "__main__":
+    new_data = pd.DataFrame({
+        'avg temp': [20],
+        'max temp': [25],
+        'min temp': [15],
+        'rainFall': [5]
+    })
+    
+    print('\n새로운 데이터에 대한 예측 결과:')
+    predictions = predict_prices(new_data)
+    for veg in vegetables:
+        print(f'{veg}: {predictions[f"{veg}_price"]}원')

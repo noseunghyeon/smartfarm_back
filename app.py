@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# pricetest.py의 예측 로직 import
+import pandas as pd
+from testpython.pricetest import predict_prices
 
 app = FastAPI()
 
@@ -13,14 +14,18 @@ app.add_middleware(
 )
 
 @app.get("/predictions")
-async def get_predictions():
-    # pricetest.py의 예측 결과를 반환
-    predictions = {
-        "cabbage": predicted_price_cabbage,
-        "potato": predicted_price_potato,
-        # ... 다른 농산물들의 예측 가격
-        "cabbage_r2": r2_score_cabbage,
-        "potato_r2": r2_score_potato,
-        # ... 다른 농산물들의 R2 점수
-    }
+async def get_predictions(
+    avg_temp: float = 20.0,
+    max_temp: float = 25.0,
+    min_temp: float = 15.0,
+    rainfall: float = 5.0
+):
+    temp_data = pd.DataFrame({
+        'avg temp': [avg_temp],
+        'max temp': [max_temp],
+        'min temp': [min_temp],
+        'rainFall': [rainfall]
+    })
+    
+    predictions = predict_prices(temp_data)
     return predictions 
