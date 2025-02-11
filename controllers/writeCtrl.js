@@ -4,12 +4,12 @@ const writeCtrl = {
   // 게시글 생성
   create: async (req, res) => {
     try {
-      const { title, content } = req.body;
+      const { title, content, category } = req.body;
       const user_id = req.user.id; // authenticateToken에서 설정한 user 정보
 
       const result = await database.pool.query(
-        "INSERT INTO write (user_id, title, content, date) VALUES ($1, $2, $3, CURRENT_DATE) RETURNING *",
-        [user_id, title, content]
+        "INSERT INTO write (user_id, title, content, category, date) VALUES ($1, $2, $3, $4, CURRENT_DATE) RETURNING *",
+        [user_id, title, content, category]
       );
 
       res.status(201).json({
@@ -83,7 +83,7 @@ const writeCtrl = {
   updatePost: async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, content } = req.body;
+      const { title, content, category } = req.body;
       const user_id = req.user.id;
 
       // 게시글 작성자 확인
@@ -107,8 +107,8 @@ const writeCtrl = {
       }
 
       const result = await database.pool.query(
-        "UPDATE write SET title = $1, content = $2, date = CURRENT_DATE WHERE post_id = $3 RETURNING *",
-        [title, content, id]
+        "UPDATE write SET title = $1, content = $2, category = $3, date = CURRENT_DATE WHERE post_id = $4 RETURNING *",
+        [title, content, category, id]
       );
 
       res.status(200).json({
