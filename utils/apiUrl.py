@@ -20,8 +20,11 @@ async def fetchWeatherData(city):
             }
             
             async with session.get(BASE_URL, params=params) as response:
-                data = await response.json()
-                return data
+                raw_data = await response.json()
+                
+                # 날씨 데이터 처리
+                processed_data = processWeatherData(raw_data)
+                return processed_data
                 
     except Exception as e:
         print(f"날씨 데이터를 가져오는데 실패했습니다: {str(e)}")
@@ -56,12 +59,15 @@ def processWeatherData(weatherData):
             }
             weekly.append(day_data)
         
-        return {
+        processed_data = {
             'current': current,
             'tomorrow': tomorrow,
             'weekly': weekly,
-            'raw': weatherData
+            'raw': weatherData  # 원본 데이터도 포함
         }
+        
+        return processed_data
+        
     except Exception as e:
         print(f'날씨 데이터 처리 중 오류 발생: {str(e)}')
         raise e 
