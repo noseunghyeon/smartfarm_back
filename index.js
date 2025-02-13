@@ -13,33 +13,42 @@ const emailRouter = require("./routes/emailRouter");
 const writeRouter = require("./routes/writeRouter");
 const commentsRouter = require("./routes/commentsRoutes");
 
-let fastApiProcess = null;  // FastAPI 프로세스 저장용 변수
+let fastApiProcess = null; // FastAPI 프로세스 저장용 변수
 
 // FastAPI 서버 시작 함수
 function startFastApiServer() {
   console.log("Starting FastAPI server...");
-  
-  // Python 가상환경이 있는 경우 해당 경로 사용
-  const pythonPath = 'python';  // 또는 'python3'
-  
-  fastApiProcess = spawn(pythonPath, ['-m', 'uvicorn', 'app:app', '--reload', '--port', '8000']);
 
-  fastApiProcess.stdout.on('data', (data) => {
+  // Python 가상환경이 있는 경우 해당 경로 사용
+  const pythonPath = "python"; // 또는 'python3'
+
+  fastApiProcess = spawn(pythonPath, [
+    "-m",
+    "uvicorn",
+    "app:app",
+    "--reload",
+    "--port",
+    "8000",
+  ]);
+
+  fastApiProcess.stdout.on("data", (data) => {
     console.log(`FastAPI: ${data}`);
   });
 
-  fastApiProcess.stderr.on('data', (data) => {
+  fastApiProcess.stderr.on("data", (data) => {
     console.error(`FastAPI Error: ${data}`);
   });
 
-  fastApiProcess.on('close', (code) => {
+  fastApiProcess.on("close", (code) => {
     console.log(`FastAPI process exited with code ${code}`);
   });
 }
 
+// Express 서버는 9000 포트 사용
+const PORT = 9000;
+
 // Express 서버 설정
 const app = express();
-const PORT = 8001;  // Express 서버는 8001 포트 사용
 
 // CORS 설정
 app.use(
@@ -154,16 +163,16 @@ app.listen(PORT, () => {
 });
 
 // 프로세스 종료 시 정리
-process.on('SIGINT', () => {
+process.on("SIGINT", () => {
   // FastAPI 서버 종료
   if (fastApiProcess) {
-    console.log('Shutting down FastAPI server...');
+    console.log("Shutting down FastAPI server...");
     fastApiProcess.kill();
   }
-  
+
   // PostgreSQL pool 정리
   pool.end(() => {
-    console.log('Pool has ended');
+    console.log("Pool has ended");
     process.exit(0);
   });
 });
