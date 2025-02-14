@@ -23,8 +23,11 @@ async def get_weather(city: str):
     try:
         from utils.apiUrl import fetchWeatherData
         weather_data = await fetchWeatherData(city)
+        
+        # CORS 헤더 추가
         return weather_data
     except Exception as e:
+        print(f"Weather API Error: {str(e)}")
         return {"error": str(e)}
 
 @app.get("/predictions/{city}")
@@ -36,13 +39,16 @@ async def get_predictions(city: str):
         # 날씨 데이터 가져오기
         weather_data = await fetchWeatherData(city)
         
-        # 가격 예측하기 (processed_data 사용)
+        # 가격 예측하기
         predictions = predict_prices({
             'current': weather_data['current'],
             'tomorrow': weather_data['tomorrow'],
             'weekly': weather_data['weekly']
         })
         
+        if 'error' in predictions:
+            raise Exception(predictions['error'])
+            
         return {
             "predictions": predictions,
             "weather_data": weather_data['raw']

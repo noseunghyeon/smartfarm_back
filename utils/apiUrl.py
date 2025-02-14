@@ -32,41 +32,42 @@ async def fetchWeatherData(city):
 
 def processWeatherData(weatherData):
     try:
-        # 현재 날씨 데이터
-        current = {
-            'avg temp': weatherData['list'][0]['main']['temp'],
-            'max temp': weatherData['list'][0]['main']['temp_max'],
-            'min temp': weatherData['list'][0]['main']['temp_min'],
-            'rainFall': weatherData['list'][0].get('rain', {}).get('3h', 0)
-        }
+        list_data = weatherData.get('list', [])
+        if not list_data:
+            raise ValueError("날씨 데이터가 비어있습니다")
 
-        # 내일 날씨 데이터 (24시간 후)
-        tomorrow = {
-            'avg temp': weatherData['list'][8]['main']['temp'],
-            'max temp': weatherData['list'][8]['main']['temp_max'],
-            'min temp': weatherData['list'][8]['main']['temp_min'],
-            'rainFall': weatherData['list'][8].get('rain', {}).get('3h', 0)
-        }
+        # 현재, 내일, 주간 데이터 처리
+        current_data = list_data[0]
+        tomorrow_data = list_data[1]
+        weekly_data = list_data[1:6]  # 5일치 데이터
 
-        # 주간 날씨 데이터
-        weekly = []
-        for i in range(0, 5):  # 5일치 데이터
-            day_data = {
-                'avg temp': weatherData['list'][i*8]['main']['temp'],
-                'max temp': weatherData['list'][i*8]['main']['temp_max'],
-                'min temp': weatherData['list'][i*8]['main']['temp_min'],
-                'rainFall': weatherData['list'][i*8].get('rain', {}).get('3h', 0)
-            }
-            weekly.append(day_data)
-        
-        processed_data = {
-            'current': current,
-            'tomorrow': tomorrow,
-            'weekly': weekly,
-            'raw': weatherData  # 원본 데이터도 포함
+        # 데이터 형식 변환
+        processed = {
+            'current': {
+                'avg temp': current_data['main']['temp'],
+                'max temp': current_data['main']['temp_max'],
+                'min temp': current_data['main']['temp_min'],
+                'rainFall': current_data.get('rain', {}).get('3h', 0)
+            },
+            'tomorrow': {
+                'avg temp': tomorrow_data['main']['temp'],
+                'max temp': tomorrow_data['main']['temp_max'],
+                'min temp': tomorrow_data['main']['temp_min'],
+                'rainFall': tomorrow_data.get('rain', {}).get('3h', 0)
+            },
+            'weekly': [
+                {
+                    'avg temp': day['main']['temp'],
+                    'max temp': day['main']['temp_max'],
+                    'min temp': day['main']['temp_min'],
+                    'rainFall': day.get('rain', {}).get('3h', 0)
+                }
+                for day in weekly_data
+            ],
+            'raw': weatherData  # 원본 데이터도 유지
         }
         
-        return processed_data
+        return processed
         
     except Exception as e:
         print(f'날씨 데이터 처리 중 오류 발생: {str(e)}')
