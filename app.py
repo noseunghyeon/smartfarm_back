@@ -30,21 +30,21 @@ async def get_weather(city: str):
         print(f"Weather API Error: {str(e)}")
         return {"error": str(e)}
 
-@app.get("/predictions/{city}")
-async def get_predictions(city: str):
+@app.get("/predictions/{crop}/{city}")
+async def get_predictions(crop: str, city: str):
     try:
         from utils.apiUrl import fetchWeatherData
-        from testpython.pricetest_v2 import predict_prices
         
-        # 날씨 데이터 가져오기
+        # 작물에 따른 예측 모듈 선택
+        if crop == "cabbage":
+            from testpython.pricetest_v2 import predict_prices
+        elif crop == "apple":
+            from testpython.appleprice import predict_prices
+        else:
+            raise ValueError("지원하지 않는 작물입니다")
+        
         weather_data = await fetchWeatherData(city)
-        
-        # 가격 예측하기
-        predictions = predict_prices({
-            'current': weather_data['current'],
-            'tomorrow': weather_data['tomorrow'],
-            'weekly': weather_data['weekly']
-        })
+        predictions = predict_prices(weather_data)
         
         if 'error' in predictions:
             raise Exception(predictions['error'])
