@@ -42,8 +42,10 @@ async def get_predictions(crop: str, city: str):
             from testpython.appleprice import predict_prices
         elif crop == "onion":
             from testpython.onion import predict_prices
-        elif crop == "potato":  # 감자 예측 추가
+        elif crop == "potato":
             from testpython.potato import predict_prices
+        elif crop == "cucumber":  # 오이 예측 추가
+            from testpython.cucumber import predict_prices
         else:
             raise ValueError("지원하지 않는 작물입니다")
         
