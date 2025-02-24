@@ -13,6 +13,7 @@ const emailRouter = require("./routes/emailRouter");
 const writeRouter = require("./routes/writeRouter");
 const commentsRouter = require("./routes/commentsRoutes");
 const newsRoutes = require('./routes/newsRoutes');
+const youtubeRoutes = require('./routes/youtubeRoutes');
 
 let fastApiProcess = null; // FastAPI 프로세스 저장용 변수
 
@@ -156,7 +157,7 @@ app.use("/api", emailRouter);
 app.use("/", weatherRoutes);
 app.use("/api/write", writeRouter);
 app.use('/api', newsRoutes);
-
+app.use('/api', youtubeRoutes);
 // Express 서버 시작
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
