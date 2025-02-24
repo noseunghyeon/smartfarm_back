@@ -12,6 +12,7 @@ const postgresqlRouters = require("./routes/postgresqlRouters");
 const emailRouter = require("./routes/emailRouter");
 const writeRouter = require("./routes/writeRouter");
 const commentsRouter = require("./routes/commentsRoutes");
+const newsRoutes = require('./routes/newsRoutes');
 
 let fastApiProcess = null; // FastAPI 프로세스 저장용 변수
 
@@ -154,6 +155,7 @@ app.use("/auth", authRoutes);
 app.use("/api", emailRouter);
 app.use("/", weatherRoutes);
 app.use("/api/write", writeRouter);
+app.use('/api', newsRoutes);
 
 // Express 서버 시작
 app.listen(PORT, () => {
