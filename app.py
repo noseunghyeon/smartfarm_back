@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import uvicorn
+from images_model.chamoe_model.chamoe_model import predict_disease  # 참외 모델 예측 함수 임포트
 
 app = FastAPI()
 
@@ -30,6 +31,15 @@ async def get_weather(city: str):
         print(f"Weather API Error: {str(e)}")
         return {"error": str(e)}
 
+@app.post("/predict")
+async def predict_chamoe(file: UploadFile = File(...)):
+    try:
+        result = await predict_disease(file)
+        return result
+    except Exception as e:
+        print(f"Prediction Error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 @app.get("/predictions/{crop}/{city}")
 async def get_predictions(crop: str, city: str):
     try:
@@ -40,23 +50,8 @@ async def get_predictions(crop: str, city: str):
             from testpython.pricetest_v2 import predict_prices
         elif crop == "apple":
             from testpython.appleprice import predict_prices
-        elif crop == "onion":
+        elif crop == "onion":  # 양파 예측 추가
             from testpython.onion import predict_prices
-        elif crop == "potato":
-            from testpython.potato import predict_prices
-        elif crop == "cucumber":
-            from testpython.cucumber import predict_prices
-        elif crop == "tomato":
-            from testpython.tomato import predict_prices
-        # 새로운 작물 추가
-        elif crop == "spinach":
-            from testpython.spinach import predict_prices
-        elif crop == "paprika":
-            from testpython.paprika import predict_prices
-        elif crop == "pepper":
-            from testpython.pepper import predict_prices
-        elif crop == "lettuce":
-            from testpython.lettuce import predict_prices
         else:
             raise ValueError("지원하지 않는 작물입니다")
         
