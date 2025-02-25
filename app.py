@@ -4,6 +4,7 @@ import pandas as pd
 import uvicorn
 from images_model.chamoe_model.chamoe_model import predict_disease  # 참외 모델 예측 함수 임포트
 
+
 app = FastAPI()
 
 # CORS 설정
