@@ -6,11 +6,6 @@ try:
     from images_model.chamoe_model.chamoe_model import predict_disease
 except ImportError as e:
     print(f"Import Error: {e}")
-<<<<<<< HEAD
-=======
-
->>>>>>> a7084d893218eb25902b4b062326134885736d4a
-
 app = FastAPI()
 
 # CORS 설정
