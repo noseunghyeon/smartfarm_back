@@ -1,5 +1,4 @@
 /node_modules
 .env
 *.onnx
-images_model/chamoe_model/models/
 
