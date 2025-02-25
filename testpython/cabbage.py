@@ -12,36 +12,39 @@ from datetime import datetime
 try:
     # 현재 파일의 절대 경로를 기준으로 CSV 파일 경로 설정
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(os.path.dirname(current_dir), 'testdata', 'Total.csv')
+    csv_path = os.path.join(os.path.dirname(current_dir), 'testdata', 'Total_v2.csv')
     
     # CSV 파일 읽기
     df = pd.read_csv(csv_path, encoding='utf-8')
+    
+    # 가격에서 쉼표 제거하고 숫자로 변환
+    df['cabbage'] = df['cabbage'].astype(str).str.replace(',', '').astype(float)
 
     # 결측치가 있는 행(가격이 0인 행) 제거
-    df = df[df['spinach'] != 0]
+    df = df[df['cabbage'] != 0]
 
     # 날짜 특성 추가
     df['date'] = pd.to_datetime(df['date'])
     df['month'] = df['date'].dt.month
     df['day'] = df['date'].dt.day
     
-    # 계절 특성 추가 (봄:1, 여름:2, 가을:3, 겨울:4)
+    # 계절 특성 추가 (1:봄, 2:여름, 3:가을, 4:겨울)
     df['season'] = df['month'].apply(lambda x: 1 if x in [3,4,5] else 2 if x in [6,7,8] else 3 if x in [9,10,11] else 4)
     
-    # 기온차 특성 추가
+    # 온도차 특성 추가
     df['temp_diff'] = df['max temp'] - df['min temp']
     
     # 이동평균 특성 추가
-    df['price_ma7'] = df['spinach'].rolling(window=7).mean()
-    df['price_ma30'] = df['spinach'].rolling(window=30).mean()
+    df['price_ma7'] = df['cabbage'].rolling(window=7, min_periods=1).mean()
+    df['price_ma30'] = df['cabbage'].rolling(window=30, min_periods=1).mean()
+    
+    # 결측치 처리
+    df = df.ffill().bfill()
     
     # 특성과 타겟 분리
     features = ['avg temp', 'max temp', 'min temp', 'rainFall', 'month', 'day', 'season', 'temp_diff', 'price_ma7', 'price_ma30']
     X = df[features]
-    y = df['spinach']
-    
-    # 결측치 처리
-    X = X.fillna(method='ffill')
+    y = df['cabbage']
     
     # 데이터 분할
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -60,7 +63,7 @@ try:
     r2 = r2_score(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     
-    print("\n시금치 가격 예측 모델 평가:")
+    print("\n배추 가격 예측 모델 평가:")
     print(f'R2 점수: {r2:.4f}')
     print(f'RMSE: {rmse:.2f}')
     
@@ -78,8 +81,8 @@ try:
     def predict_price(temp_avg, temp_max, temp_min, rainfall, month=datetime.now().month):
         season = 1 if month in [3,4,5] else 2 if month in [6,7,8] else 3 if month in [9,10,11] else 4
         temp_diff = temp_max - temp_min
-        price_ma7 = df['spinach'].mean()
-        price_ma30 = df['spinach'].mean()
+        price_ma7 = df['cabbage'].mean()
+        price_ma30 = df['cabbage'].mean()
         
         new_data = pd.DataFrame({
             'avg temp': [temp_avg],
@@ -158,7 +161,7 @@ try:
             predictions = predict_prices(weather_data)
             
             # 결과 출력
-            print("\n=== 시금치 가격 예측 결과 ===")
+            print("\n=== 배추 가격 예측 결과 ===")
             print("\n현재 예측 가격:")
             print(f"가격: {predictions['current']['price']:,.0f}원")
             print(f"정확도: {predictions['current']['r2_score']:.2%}")
