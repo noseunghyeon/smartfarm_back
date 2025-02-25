@@ -108,6 +108,26 @@ async def get_predictions(crop: str, city: str):
         print(f"Error in predictions: {str(e)}")
         return {"error": str(e)}
 
+@app.get("/satellite")
+async def get_satellite():
+    """한반도 위성 구름 이미지 정보를 가져옵니다."""
+    try:
+        from utils.apiUrl import fetchSatelliteImage
+        satellite_data = await fetchSatelliteImage()
+        
+        if not satellite_data.get('success'):
+            raise ValueError(satellite_data.get('message', '위성 데이터를 가져오는데 실패했습니다'))
+            
+        return satellite_data
+        
+    except Exception as e:
+        print(f"Satellite API Error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "위성 이미지 데이터를 가져오는데 실패했습니다"
+        }
+
 if __name__ == "__main__":
     print("Server is running on port 8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
