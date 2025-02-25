@@ -9,21 +9,47 @@ load_dotenv()
 API_KEY = os.getenv('WEATHER_API_KEY')
 BASE_URL = "http://api.openweathermap.org/data/2.5/forecast"
 
+# 한국 주요 도시 매핑 (한글:영문)
+KOREAN_CITIES = {
+    "서울": "Seoul",
+    "부산": "Busan",
+    "인천": "Incheon",
+    "대구": "Daegu",
+    "대전": "Daejeon",
+    "광주": "Gwangju",
+    "울산": "Ulsan",
+    "수원": "Suwon",
+    "창원": "Changwon",
+    "고양": "Goyang",
+    "용인": "Yongin",
+    "성남": "Seongnam",
+    "청주": "Cheongju",
+    "제주": "Jeju"
+}
+
 async def fetchWeatherData(city):
     try:
+        # 한글 도시명을 영문으로 변환
+        english_city = KOREAN_CITIES.get(city, city)
+        
         async with aiohttp.ClientSession() as session:
             params = {
-                'q': city,
+                'q': f"{english_city},KR",  # 국가 코드 추가
                 'appid': API_KEY,
                 'units': 'metric',
                 'lang': 'kr'
             }
             
             async with session.get(BASE_URL, params=params) as response:
+                if response.status != 200:
+                    error_data = await response.json()
+                    raise ValueError(f"날씨 API 오류: {error_data.get('message', '알 수 없는 오류')}")
+                    
                 raw_data = await response.json()
-                
-                # 날씨 데이터 처리
                 processed_data = processWeatherData(raw_data)
+                
+                # 한글 도시명 추가
+                processed_data['korean_name'] = city if city in KOREAN_CITIES else english_city
                 return processed_data
                 
     except Exception as e:
