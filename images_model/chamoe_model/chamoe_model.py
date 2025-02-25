@@ -1,9 +1,10 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from keras.models import load_model
+import onnxruntime as ort
 import numpy as np
 import uvicorn
 import cv2
+import os
 
 app = FastAPI()
 
@@ -16,9 +17,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 모델 로드
-plant_model = load_model('images_model/chamoe_model/chamoe_models/plant_classifier.h5')  # 참외 식물 여부 판별 모델
-disease_model = load_model('images_model/chamoe_model/chamoe_models/best_disease_classifier.h5')  # 병해 분류 모델
+# 현재 파일의 디렉토리 경로를 가져옵니다
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 모델 파일 경로 설정
+plant_model_path = os.path.join(BASE_DIR, 'models', 'plant_classifier.onnx')
+disease_model_path = os.path.join(BASE_DIR, 'models', 'best_disease_classifier.onnx')
+
+# 모델 파일 존재 여부 확인
+if not os.path.exists(plant_model_path):
+    raise FileNotFoundError(f"Plant classifier model not found at: {plant_model_path}")
+if not os.path.exists(disease_model_path):
+    raise FileNotFoundError(f"Disease classifier model not found at: {disease_model_path}")
+
+# ONNX 모델 로드
+plant_model = ort.InferenceSession(plant_model_path)
+disease_model = ort.InferenceSession(disease_model_path)
 
 CATEGORIES = ["downy_mildew_chamoe", "healthy_chamoe", "powdery_mildew_chamoe"]
 
@@ -30,11 +44,13 @@ async def predict_disease(file: UploadFile = File(...)):
         nparr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_resized = cv2.resize(img, (224, 224))  # 모델 입력 크기로 변경
-        img_array = np.expand_dims(img_resized, axis=0) / 255.0  # 정규화
+        img_resized = cv2.resize(img, (224, 224))
+        img_array = np.expand_dims(img_resized, axis=0).astype(np.float32) / 255.0
 
         # 1단계: 참외 식물 여부 판별
-        plant_prob = float(plant_model.predict(img_array)[0][0])
+        input_name = plant_model.get_inputs()[0].name
+        output_name = plant_model.get_outputs()[0].name
+        plant_prob = float(plant_model.run([output_name], {input_name: img_array})[0][0][0])
         
         if plant_prob < 0.5:
             return {
@@ -45,7 +61,9 @@ async def predict_disease(file: UploadFile = File(...)):
             }
 
         # 2단계: 병해 예측
-        disease_pred = disease_model.predict(img_array)[0]
+        input_name = disease_model.get_inputs()[0].name
+        output_name = disease_model.get_outputs()[0].name
+        disease_pred = disease_model.run([output_name], {input_name: img_array})[0][0]
         disease_idx = np.argmax(disease_pred)
         
         # 각 카테고리별 확률
