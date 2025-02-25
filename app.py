@@ -37,26 +37,21 @@ async def get_predictions(crop: str, city: str):
         
         # 작물에 따른 예측 모듈 선택
         if crop == "cabbage":
-            from testpython.pricetest_v2 import predict_prices
+            from testpython.cabbage import predict_prices
         elif crop == "apple":
             from testpython.appleprice import predict_prices
         elif crop == "onion":
-            from testpython.onion import predict_prices
+            from testpython.onion2 import predict_prices
         elif crop == "potato":
-            from testpython.potato import predict_prices
+            from testpython.potato2 import predict_prices
         elif crop == "cucumber":
-            from testpython.cucumber import predict_prices
+            from testpython.cucumber2 import predict_prices
         elif crop == "tomato":
-            from testpython.tomato import predict_prices
-        # 새로운 작물 추가
+            from testpython.tomato2 import predict_prices
         elif crop == "spinach":
-            from testpython.spinach import predict_prices
-        elif crop == "paprika":
-            from testpython.paprika import predict_prices
-        elif crop == "pepper":
-            from testpython.pepper import predict_prices
-        elif crop == "lettuce":
-            from testpython.lettuce import predict_prices
+            from testpython.spinach2 import predict_prices
+        elif crop == "strawberry":
+            from testpython.strawberry import predict_prices
         else:
             raise ValueError("지원하지 않는 작물입니다")
         
