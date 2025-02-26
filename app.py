@@ -6,6 +6,8 @@ try:
     from images_model.chamoe_model.chamoe_model import predict_disease
 except ImportError as e:
     print(f"Import Error: {e}")
+from utils.apiUrl import KOREAN_CITIES
+
 app = FastAPI()
 
 # CORS 설정
@@ -21,17 +23,42 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
+@app.get("/cities")
+async def get_cities():
+    """사용 가능한 도시 목록을 반환합니다."""
+    return {
+        "success": True,
+        "data": {
+            "cities": list(KOREAN_CITIES.keys()),
+            "mapping": KOREAN_CITIES
+        },
+        "message": "도시 목록을 성공적으로 가져왔습니다"
+    }
+
 @app.get("/weather")
 async def get_weather(city: str):
     try:
+        if not city:
+            raise ValueError("도시명이 입력되지 않았습니다")
+            
+        if city not in KOREAN_CITIES and city not in KOREAN_CITIES.values():
+            raise ValueError("지원하지 않는 도시입니다")
+            
         from utils.apiUrl import fetchWeatherData
         weather_data = await fetchWeatherData(city)
         
-        # CORS 헤더 추가
-        return weather_data
+        return {
+            "success": True,
+            "data": weather_data,
+            "message": "날씨 데이터를 성공적으로 가져왔습니다"
+        }
     except Exception as e:
         print(f"Weather API Error: {str(e)}")
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "날씨 데이터를 가져오는데 실패했습니다"
+        }
 
 @app.post("/predict")
 async def predict_chamoe(file: UploadFile = File(...)):
@@ -80,6 +107,26 @@ async def get_predictions(crop: str, city: str):
     except Exception as e:
         print(f"Error in predictions: {str(e)}")
         return {"error": str(e)}
+
+@app.get("/satellite")
+async def get_satellite():
+    """한반도 위성 구름 이미지 정보를 가져옵니다."""
+    try:
+        from utils.apiUrl import fetchSatelliteImage
+        satellite_data = await fetchSatelliteImage()
+        
+        if not satellite_data.get('success'):
+            raise ValueError(satellite_data.get('message', '위성 데이터를 가져오는데 실패했습니다'))
+            
+        return satellite_data
+        
+    except Exception as e:
+        print(f"Satellite API Error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "위성 이미지 데이터를 가져오는데 실패했습니다"
+        }
 
 if __name__ == "__main__":
     print("Server is running on port 8000")
