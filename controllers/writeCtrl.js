@@ -4,12 +4,12 @@ const writeCtrl = {
   // 게시글 생성
   create: async (req, res) => {
     try {
-      const { title, content, category } = req.body;
+      const { title, content, category, community_type } = req.body;
       const user_id = req.user.id; // authenticateToken에서 설정한 user 정보
 
       const result = await database.pool.query(
-        "INSERT INTO write (user_id, title, content, category, date) VALUES ($1, $2, $3, $4, CURRENT_DATE) RETURNING *",
-        [user_id, title, content, category]
+        "INSERT INTO write (user_id, title, content, category, community_type, date) VALUES ($1, $2, $3, $4, $5, CURRENT_DATE) RETURNING *",
+        [user_id, title, content, category, community_type]
       );
 
       res.status(201).json({
@@ -79,11 +79,35 @@ const writeCtrl = {
     }
   },
 
+  // 특정 커뮤니티의 게시글 조회 추가
+  getPostsByType: async (req, res) => {
+    try {
+      const { type } = req.params; // gardening, marketplace, freeboard
+
+      const result = await database.pool.query(
+        "SELECT w.*, a.email FROM write w JOIN Auth a ON w.user_id = a.user_id WHERE w.community_type = $1 ORDER BY date DESC",
+        [type]
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result.rows,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({
+        success: false,
+        message: "게시글 조회 실패",
+        error: err.message,
+      });
+    }
+  },
+
   // 게시글 수정
   updatePost: async (req, res) => {
     try {
       const { id } = req.params;
-      const { title, content, category } = req.body;
+      const { title, content, category, community_type } = req.body;
       const user_id = req.user.id;
 
       // 게시글 작성자 확인
@@ -107,8 +131,8 @@ const writeCtrl = {
       }
 
       const result = await database.pool.query(
-        "UPDATE write SET title = $1, content = $2, category = $3, date = CURRENT_DATE WHERE post_id = $4 RETURNING *",
-        [title, content, category, id]
+        "UPDATE write SET title = $1, content = $2, category = $3, community_type = $4, date = CURRENT_DATE WHERE post_id = $5 RETURNING *",
+        [title, content, category, community_type, id]
       );
 
       res.status(200).json({

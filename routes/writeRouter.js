@@ -17,4 +17,7 @@ router.put("/:id", authenticateToken, writeCtrl.updatePost);
 // 게시글 삭제
 router.delete("/:id", authenticateToken, writeCtrl.deletePost);
 
+// 새로운 라우트 추가: 특정 커뮤니티 타입의 게시글 조회
+router.get("/community/:type", writeCtrl.getPostsByType);
+
 module.exports = router;
