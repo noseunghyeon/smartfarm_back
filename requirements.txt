@@ -14,3 +14,4 @@ python-multipart>=0.0.6
 psycopg2-binary>=2.9.9
 tensorflow>=2.0.0
 # uvicorn app:app --reload --host 0.0.0.0 --port 8000 # FastAPI 실행
+# npm install bcrypt

@@ -1,19 +1,21 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import uvicorn
-try:
-    from images_model.chamoe_model.chamoe_model import predict_disease
-except ImportError as e:
-    print(f"Import Error: {e}")
+
+# try:
+#     from images_model.chamoe_model.chamoe_model import predict_disease
+# except ImportError as e:
+#     print(f"Import Error: {e}")
 from utils.apiUrl import KOREAN_CITIES
+from test import get_price_data
 
 app = FastAPI()
 
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8001"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -108,7 +110,7 @@ async def get_predictions(crop: str, city: str):
         print(f"Error in predictions: {str(e)}")
         return {"error": str(e)}
 
-@app.get("/satellite")
+@app.get("/api/satellite")
 async def get_satellite():
     """한반도 위성 구름 이미지 정보를 가져옵니다."""
     try:
@@ -126,6 +128,26 @@ async def get_satellite():
             "success": False,
             "error": str(e),
             "message": "위성 이미지 데이터를 가져오는데 실패했습니다"
+        }
+
+@app.get("/api/price")
+async def get_price():
+    """농산물 가격 정보를 반환합니다."""
+    try:
+        result = get_price_data()
+        if result is None:
+            raise HTTPException(status_code=500, detail="데이터를 가져오는데 실패했습니다")
+        return {
+            "success": True,
+            "data": result,
+            "message": "가격 데이터를 성공적으로 가져왔습니다"
+        }
+    except Exception as e:
+        print(f"Price API Error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "가격 데이터를 가져오는데 실패했습니다"
         }
 
 if __name__ == "__main__":
