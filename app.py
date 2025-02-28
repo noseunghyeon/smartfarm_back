@@ -8,7 +8,7 @@ import uvicorn
 # except ImportError as e:
 #     print(f"Import Error: {e}")
 from utils.apiUrl import KOREAN_CITIES
-from test import get_price_data
+from test import get_price_data, get_satellite_data
 
 app = FastAPI()
 
@@ -114,14 +114,14 @@ async def get_predictions(crop: str, city: str):
 async def get_satellite():
     """한반도 위성 구름 이미지 정보를 가져옵니다."""
     try:
-        from utils.apiUrl import fetchSatelliteImage
-        satellite_data = await fetchSatelliteImage()
-        
-        if not satellite_data.get('success'):
-            raise ValueError(satellite_data.get('message', '위성 데이터를 가져오는데 실패했습니다'))
-            
-        return satellite_data
-        
+        result = get_satellite_data()
+        if result is None:
+            raise HTTPException(status_code=500, detail="위성 데이터를 가져오는데 실패했습니다")
+        return {
+            "success": True,
+            "data": result,
+            "message": "위성 이미지 데이터를 성공적으로 가져왔습니다"
+        }
     except Exception as e:
         print(f"Satellite API Error: {str(e)}")
         return {
