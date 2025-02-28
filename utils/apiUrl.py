@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import aiohttp
 import json
 import urllib.parse
-from datetime import datetime
 
 # 환경 변수 로딩
 load_dotenv()
@@ -20,17 +19,8 @@ KOREAN_CITIES = {
     "대전": "Daejeon",
     "광주": "Gwangju",
     "울산": "Ulsan",
-    "수원": "Suwon",
-    "창원": "Changwon",
-    "고양": "Goyang",
-    "용인": "Yongin",
-    "성남": "Seongnam",
-    "청주": "Cheongju",
     "제주": "Jeju"
 }
-
-# 기상청 위성 이미지 URL 수정
-SATELLITE_BASE_URL = "https://apihub.kma.go.kr/api/typ01/url/sat"
 
 async def fetchWeatherData(city):
     try:
@@ -102,38 +92,4 @@ def processWeatherData(weatherData):
         
     except Exception as e:
         print(f'날씨 데이터 처리 중 오류 발생: {str(e)}')
-        raise e
-
-async def fetchSatelliteImage():
-    try:
-        # 현재 시간을 기준으로 가장 최근 이미지 시간 계산
-        now = datetime.now()
-        # 10분 단위로 내림
-        minutes = (now.minute // 10) * 10
-        latest_time = now.replace(minute=minutes, second=0, microsecond=0)
-        
-        # 실제영상 URL만 반환
-        image_url = 'https://www.weather.go.kr/wgis-nuri/html/map.html?type=rgb'
-        
-        # 이미지 URL 확인을 위한 요청
-        async with aiohttp.ClientSession() as session:
-            async with session.get(image_url) as response:
-                if response.status == 200:
-                    return {
-                        'success': True,
-                        'data': {
-                            'imageUrl': image_url,
-                            'timestamp': latest_time.isoformat(),
-                            'updateInterval': '10분'
-                        }
-                    }
-                else:
-                    raise ValueError("위성 이미지를 가져올 수 없습니다")
-                    
-    except Exception as e:
-        print(f"위성 이미지 데이터를 가져오는데 실패했습니다: {str(e)}")
-        return {
-            'success': False,
-            'error': str(e),
-            'message': '위성 이미지 데이터를 가져오는데 실패했습니다'
-        } 
+        raise e 
