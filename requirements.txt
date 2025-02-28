@@ -13,4 +13,9 @@ aiohttp>=3.8.4
 python-multipart>=0.0.6
 psycopg2-binary>=2.9.9
 tensorflow>=2.0.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+sqlalchemy>=1.4.41
+pyjwt>=2.6.0
+email-validator>=2.0.0
 # uvicorn app:app --reload --host 0.0.0.0 --port 8000 # FastAPI 실행
