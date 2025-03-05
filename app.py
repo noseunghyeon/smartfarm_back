@@ -57,10 +57,12 @@ app = FastAPI()
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # app.py 서버만 허용
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # 데이터베이스 설정
@@ -118,7 +120,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         if user_id is None:
             raise HTTPException(status_code=401)
         return user_id
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401)
 
 @app.get("/")
@@ -483,15 +485,52 @@ async def create_comment(comment: CommentCreate):
 async def update_comment(
     comment_id: int, 
     comment_update: CommentUpdate,
-    current_user: str = Depends(get_current_user)
+    current_user: str = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme)
 ):
-    async with httpx.AsyncClient() as client:
-        response = await client.put(
-            f"{BACKEND_URL}/api/comments/{comment_id}",
-            json=comment_update.dict(),
-            params={"user_email": current_user}
-        )
-        return response.json()
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            logging.info(f"댓글 수정 요청: comment_id={comment_id}, user={current_user}")
+            
+            # 프론트엔드 데이터 형식에 맞게 변환
+            request_data = {
+                "commentId": comment_id,
+                "content": comment_update.content,
+                "userEmail": current_user
+            }
+            
+            logging.info(f"요청 데이터: {request_data}")
+            
+            response = await client.put(
+                f"{BACKEND_URL}/api/comments/{comment_id}",
+                json=request_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}"
+                }
+            )
+            
+            logging.info(f"백엔드 응답: {response.status_code} - {response.text}")
+            
+            if response.status_code == 401:
+                logging.error("인증 오류: 토큰이 만료되었거나 유효하지 않습니다")
+                raise HTTPException(
+                    status_code=401,
+                    detail="로그인이 필요하거나 인증이 만료되었습니다. 다시 로그인해주세요."
+                )
+            
+            if response.status_code != 200:
+                logging.error(f"백엔드 서버 오류: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            
+            return response.json()
+    except httpx.RequestError as e:
+        logging.error(f"백엔드 서버 연결 오류: {str(e)}")
+        raise HTTPException(status_code=503, detail="백엔드 서버에 연결할 수 없습니다.")
+    except Exception as e:
+        logging.error(f"댓글 수정 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/comments/{comment_id}")
 async def delete_comment(
@@ -660,9 +699,15 @@ async def update_post(
         db.close()
 
 # 게시글 삭제
-@app.delete("/api/posts/{post_id}")
-async def delete_post(post_id: int, current_user: str = Depends(get_current_user)):
+@app.delete("/api/write/{post_id}")
+async def delete_post(
+    post_id: int, 
+    current_user: str = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme)
+):
     try:
+        logging.info(f"게시글 삭제 요청: post_id={post_id}, user={current_user}")
+        
         db = SessionLocal()
         
         # 게시글 작성자 확인
@@ -676,9 +721,12 @@ async def delete_post(post_id: int, current_user: str = Depends(get_current_user
         post = result.fetchone()
         
         if not post:
-            raise HTTPException(status_code=404, detail="Post not found")
+            logging.error(f"게시글을 찾을 수 없음: post_id={post_id}")
+            raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다")
+            
         if post.email != current_user:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this post")
+            logging.error(f"권한 없음: post_id={post_id}, user={current_user}")
+            raise HTTPException(status_code=403, detail="게시글을 삭제할 권한이 없습니다")
         
         # 연관된 댓글 삭제
         db.execute(text("DELETE FROM comments WHERE post_id = :post_id"), {"post_id": post_id})
@@ -687,10 +735,12 @@ async def delete_post(post_id: int, current_user: str = Depends(get_current_user
         db.execute(text("DELETE FROM write WHERE post_id = :post_id"), {"post_id": post_id})
         db.commit()
         
-        return {"success": True, "message": "Post and related comments deleted successfully"}
+        logging.info(f"게시글 삭제 완료: post_id={post_id}")
+        return {"success": True, "message": "게시글이 성공적으로 삭제되었습니다"}
         
     except Exception as e:
         db.rollback()
+        logging.error(f"게시글 삭제 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
