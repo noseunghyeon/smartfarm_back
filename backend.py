@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime
 from typing import Optional, List
@@ -8,6 +8,9 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from test import get_price_data
+import logging
+from fastapi.security import OAuth2PasswordBearer
+import jwt
 
 app = FastAPI()
 
@@ -53,6 +56,21 @@ class CommentCreate(BaseModel):
 
 class CommentUpdate(BaseModel):
     content: str
+
+# JWT 설정
+SECRET_KEY = os.getenv("JWT_SECRET")
+ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401)
+        return user_id
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401)
 
 @app.get("/")
 def read_root():
@@ -160,11 +178,31 @@ async def create_comment(comment: CommentCreate):
 @app.put("/api/comments/{comment_id}")
 async def update_comment(
     comment_id: int, 
-    comment_update: CommentUpdate,
-    user_email: str
+    comment_data: dict,
+    authorization: str = Header(None)
 ):
     try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="유효하지 않은 인증 토큰입니다")
+            
+        token = authorization.split(" ")[1]
+        try:
+            current_user = await get_current_user(token)
+            logging.info(f"인증된 사용자: {current_user}")
+        except Exception as e:
+            logging.error(f"토큰 검증 실패: {str(e)}")
+            raise HTTPException(status_code=401, detail="인증이 만료되었거나 유효하지 않은 토큰입니다")
+        
         db = SessionLocal()
+        
+        # 프론트엔드 데이터에서 필요한 정보 추출
+        content = comment_data.get("content")
+        user_email = comment_data.get("userEmail")
+        
+        logging.info(f"받은 데이터: content={content}, user_email={user_email}")
+        
+        if not content or not user_email:
+            raise HTTPException(status_code=400, detail="필수 데이터가 누락되었습니다")
         
         # 댓글 작성자 확인
         check_query = text("""
@@ -177,29 +215,41 @@ async def update_comment(
         comment = result.fetchone()
         
         if not comment:
-            raise HTTPException(status_code=404, detail="Comment not found")
+            raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다")
         if comment.email != user_email:
-            raise HTTPException(status_code=403, detail="Not authorized to update this comment")
+            raise HTTPException(status_code=403, detail="댓글을 수정할 권한이 없습니다")
         
         # 댓글 수정
         update_query = text("""
             UPDATE comments 
             SET content = :content 
             WHERE comment_id = :comment_id
-            RETURNING *
+            RETURNING comment_id, post_id, user_id, content, created_at
         """)
         
         result = db.execute(update_query, {
-            "content": comment_update.content,
+            "content": content,
             "comment_id": comment_id
         })
         db.commit()
         
         updated_comment = result.fetchone()
-        return {"success": True, "data": dict(updated_comment)}
+        
+        return {
+            "success": True,
+            "data": {
+                "comment_id": updated_comment.comment_id,
+                "post_id": updated_comment.post_id,
+                "user_id": updated_comment.user_id,
+                "content": updated_comment.content,
+                "created_at": updated_comment.created_at,
+                "email": user_email
+            }
+        }
         
     except Exception as e:
         db.rollback()
+        logging.error(f"댓글 수정 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
