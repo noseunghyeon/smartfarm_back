@@ -1112,6 +1112,42 @@ async def get_post_detail(post_id: int):
     finally:
         db.close()
 
+@app.get("/auth/user")
+async def get_user_info(current_user: str = Depends(get_current_user)):
+    try:
+        db = SessionLocal()
+        
+        # 사용자 정보 조회
+        query = text("""
+            SELECT 
+                user_id, 
+                email, 
+                TO_CHAR(birth_date, 'YYYY-MM-DD') as birth_date,
+                TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
+            FROM auth 
+            WHERE email = :email
+        """)
+        result = db.execute(query, {"email": current_user})
+        user = result.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "data": {
+                "user_id": user.user_id,
+                "email": user.email,
+                "birth_date": user.birth_date,
+                "created_at": user.created_at
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     print("Server is running on port 8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
