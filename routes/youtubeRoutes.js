@@ -61,7 +61,7 @@ router.get('/youtube-videos', async (req, res) => {
 
     const response = await youtube.search.list({
       part: 'snippet',
-      q: '농업 교육', // 검색어
+      q: '작물 재배법', // 검색어
       maxResults: 3,
       type: 'video'
     });
