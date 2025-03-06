@@ -26,6 +26,7 @@ from test import get_price_data
 import threading
 import sys
 from backend import CommentCreate, CommentUpdate
+import random
 
 # try:
 #     from images_model.chamoe_model.chamoe_model import predict_disease
@@ -76,16 +77,16 @@ DB_NAME = os.getenv("DB_NAME")
 DB_PORT = os.getenv("DB_PORT")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-JWT_SECRET_KEY = os.getenv("JWT_SECRET")
+JWT_SECRET = os.getenv("JWT_SECRET")
 
-if not all([DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT, JWT_SECRET_KEY]):
+if not all([DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT, JWT_SECRET]):
     raise ValueError("필수 환경 변수가 설정되지 않았습니다.")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # JWT 설정
-SECRET_KEY = JWT_SECRET_KEY
+SECRET_KEY = JWT_SECRET
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -809,21 +810,20 @@ async def delete_user(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
-# 이메일 인증 토큰 발송
+# 인증 코드 저장을 위한 임시 저장소
+verification_codes = {}
+
 @app.post("/auth/verify-email")
 async def send_verification_email(email: EmailStr):
     try:
-        # 인증 토큰 생성
-        token = secrets.token_urlsafe(32)
+        # 6자리 인증 코드 생성
+        verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
         
-        # 토큰 저장 (임시 테이블 필요)
-        db = SessionLocal()
-        query = text("""
-            INSERT INTO email_verifications (email, token, created_at)
-            VALUES (:email, :token, NOW())
-        """)
-        db.execute(query, {"email": email, "token": token})
-        db.commit()
+        # 인증 코드 저장 (5분 동안 유효)
+        verification_codes[email] = {
+            'code': verification_code,
+            'expires_at': datetime.utcnow() + timedelta(minutes=5)
+        }
         
         # 이메일 발송
         message = MessageSchema(
@@ -831,21 +831,79 @@ async def send_verification_email(email: EmailStr):
             recipients=[email],
             body=f"""
             안녕하세요!
-            아래 링크를 클릭하여 이메일을 인증해주세요:
-            http://localhost:3000/verify-email?token={token}
-            """
+            회원가입을 위한 인증 코드입니다:
+            
+            인증 코드: {verification_code}
+            
+            이 코드는 5분 동안만 유효합니다.
+            """,
+            subtype="plain"
         )
         
-        fastmail = FastMail(email_conf)
-        await fastmail.send_message(message)
-        
-        return {"success": True, "message": "Verification email sent"}
+        try:
+            fastmail = FastMail(email_conf)
+            await fastmail.send_message(message)
+            return {"success": True, "message": "인증 코드가 발송되었습니다."}
+        except Exception as email_error:
+            print(f"이메일 발송 상세 오류: {str(email_error)}")
+            print(f"오류 타입: {type(email_error)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"이메일 발송 중 오류가 발생했습니다: {str(email_error)}"
+            )
         
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
+        print(f"기타 오류: {str(e)}")
+        print(f"오류 타입: {type(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"처리 중 오류가 발생했습니다: {str(e)}"
+        )
+
+@app.post("/auth/verify-code")
+async def verify_code(email: EmailStr, code: str):
+    if email not in verification_codes:
+        raise HTTPException(status_code=400, detail="인증 코드를 찾을 수 없습니다.")
+        
+    stored_data = verification_codes[email]
+    if datetime.utcnow() > stored_data['expires_at']:
+        del verification_codes[email]
+        raise HTTPException(status_code=400, detail="인증 코드가 만료되었습니다.")
+        
+    if code != stored_data['code']:
+        raise HTTPException(status_code=400, detail="잘못된 인증 코드입니다.")
+        
+    # 인증 성공 시 코드 삭제
+    del verification_codes[email]
+    return {"success": True, "message": "이메일이 성공적으로 인증되었습니다."}
+
+@app.get("/auth/verify-email/{token}")
+async def verify_email_token(token: str):
+    try:
+        # 토큰 검증
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        email = payload["email"]
+        
+        # 여기서 필요한 경우 사용자의 이메일 인증 상태를 업데이트할 수 있습니다
+        # 예: Auth 테이블에 verified 필드를 추가하여 업데이트
+        
+        return {"message": "이메일이 성공적으로 인증되었습니다."}
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=400,
+            detail="인증 링크가 만료되었습니다. 다시 인증 이메일을 요청해주세요."
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=400,
+            detail="유효하지 않은 인증 링크입니다."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"인증 처리 중 오류가 발생했습니다: {str(e)}"
+        )
 
 # 비밀번호 재설정 요청
 @app.post("/auth/reset-password-request")
