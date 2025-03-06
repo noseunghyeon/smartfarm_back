@@ -3,17 +3,11 @@ const cors = require("cors");
 const path = require("path");
 const spawn = require("child_process").spawn;
 const { pool } = require("./database/database");
-const authRoutes = require("./routes/authRoutes");
-const { authenticateToken } = require("./utils/authenticate");
 const weatherRoutes = require("./routes/weatherRoutes");
-
-require("dotenv").config();
-const postgresqlRouters = require("./routes/postgresqlRouters");
-const emailRouter = require("./routes/emailRouter");
-const writeRouter = require("./routes/writeRouter");
-const commentsRouter = require("./routes/commentsRoutes");
 const newsRoutes = require('./routes/newsRoutes');
 const youtubeRoutes = require('./routes/youtubeRoutes');
+
+require("dotenv").config();
 
 let fastApiProcess = null; // FastAPI 프로세스 저장용 변수
 
@@ -63,37 +57,6 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/comments", commentsRouter);
-
-// 데이터베이스 연결 테스트
-app.get("/api/test-db", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({ success: true, timestamp: result.rows[0].now });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 판매 데이터 조회 API
-app.get("/api/sales", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM sales_data_2024");
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// TOP 10 데이터 조회 API
-app.get("/api/top10", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM top_10_sales");
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // 루트 경로 호출
 app.get("/", (request, response) => {
@@ -151,13 +114,10 @@ app.post("/get_text", (req, res) => {
 });
 
 // 라우트 설정
-app.use("/api", postgresqlRouters);
-app.use("/auth", authRoutes);
-app.use("/api", emailRouter);
 app.use("/", weatherRoutes);
-app.use("/api/write", writeRouter);
 app.use('/api', newsRoutes);
 app.use('/api', youtubeRoutes);
+
 // Express 서버 시작
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
