@@ -181,7 +181,7 @@ async def get_predictions(crop: str, city: str):
         
         # 작물에 따른 예측 모듈 선택
         if crop == "cabbage":
-            from testpython.cabbage import predict_prices
+            from testpython.cabbage2 import predict_prices
         elif crop == "apple":
             from testpython.appleprice import predict_prices
         elif crop == "onion":
