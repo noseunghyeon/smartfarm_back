@@ -384,10 +384,6 @@ async def login(login_data: LoginData):
     finally:
         db.close()
 
-@app.get("/api/posts")
-async def get_posts():
-    # 게시글 조회 로직 구현
-    pass
 
 # 커뮤니티 타입 열거형 정의
 class CommunityType(str, Enum):
@@ -830,8 +826,7 @@ async def send_verification_email(email: EmailStr):
             subject="이메일 인증",
             recipients=[email],
             body=f"""
-            안녕하세요!
-            회원가입을 위한 인증 코드입니다:
+            안녕하세요! AniFarm 회원가입을 위한 인증 코드입니다:
             
             인증 코드: {verification_code}
             
