@@ -33,6 +33,18 @@ from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, Chat
 # Load environment variables
 load_dotenv()
 
+# 도시 매핑 정의
+KOREAN_CITIES = {
+    "서울": "Seoul",
+    "부산": "Busan",
+    "대구": "Daegu",
+    "인천": "Incheon",
+    "광주": "Gwangju",
+    "대전": "Daejeon",
+    "울산": "Ulsan",
+    "제주": "Jeju"
+}
+
 # Backend API URL
 BACKEND_URL = "http://localhost:8080"
 
