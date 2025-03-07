@@ -27,6 +27,7 @@ import threading
 import sys
 from backend import CommentCreate, CommentUpdate
 import random
+from routes.youtube import router as youtube_router
 
 # try:
 #     from images_model.chamoe_model.chamoe_model import predict_disease
@@ -1200,6 +1201,9 @@ async def get_user_info(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+# YouTube 라우터 포함
+app.include_router(youtube_router)
 
 if __name__ == "__main__":
     print("Server is running on port 8000")
