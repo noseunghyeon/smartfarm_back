@@ -56,29 +56,45 @@ def get_price_data():
     # API 엔드포인트 URL
     url = "http://www.kamis.or.kr/service/price/xml.do"
     
-    # API 요청 파라미터
-    params = {
-        "action": "dailyPriceByCategoryList",
-        "p_product_cls_code": "02",
-        "p_country_code": "1101",
-        "p_regday": today,
-        "p_convert_kg_yn": "N",
-        "p_item_category_code": "200",
-        "p_cert_key": os.getenv('KAMIS_API_KEY'),
-        "p_cert_id": "5243",
-        "p_returntype": "json"
-    }
+    # 채소류와 곡물류 데이터를 저장할 리스트
+    all_data = {"data": {"item": []}}
 
+    # 채소류(200)와 곡물류(100) 카테고리 코드
+    categories = [
+        {"code": "200", "name": "채소류"},
+        {"code": "100", "name": "곡물류"}
+    ]
+    
     try:
-        # API 호출
-        response = requests.get(url, params=params)
-        response.raise_for_status()  # HTTP 에러 체크
+        for category in categories:
+            # API 요청 파라미터
+            params = {
+                "action": "dailyPriceByCategoryList",
+                "p_product_cls_code": "02",
+                "p_country_code": "1101",
+                "p_regday": today,
+                "p_convert_kg_yn": "N",
+                "p_item_category_code": category["code"],
+                "p_cert_key": os.getenv('KAMIS_API_KEY'),
+                "p_cert_id": "5243",
+                "p_returntype": "json"
+            }
+
+            # API 호출
+            response = requests.get(url, params=params)
+            response.raise_for_status()  # HTTP 에러 체크
+            
+            # JSON 응답 파싱
+            data = response.json()
+            
+            # 카테고리 정보 추가
+            if "data" in data and "item" in data["data"]:
+                for item in data["data"]["item"]:
+                    item["category_code"] = category["code"]
+                    item["category_name"] = category["name"]
+                    all_data["data"]["item"].append(item)
         
-        # JSON 응답 파싱
-        data = response.json()
-        
-        # 데이터 반환
-        return data
+        return all_data
         
     except requests.exceptions.RequestException as e:
         print(f"API 호출 중 오류 발생: {e}")
