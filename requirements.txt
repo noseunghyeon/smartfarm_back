@@ -22,6 +22,8 @@ google-api-python-client
 fastapi-mail
 httpx
 bcrypt
-
+langchain_openai
+langchain-community 
+langchain-openai langgraph
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000

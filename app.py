@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 import jwt
 from pydantic import BaseModel, EmailStr
 import os
@@ -28,31 +28,27 @@ import sys
 from backend import CommentCreate, CommentUpdate
 import random
 from routes.youtube import router as youtube_router
+from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
 
-# try:
-#     from images_model.chamoe_model.chamoe_model import predict_disease
-# except ImportError as e:
-#     print(f"Import Error: {e}")
-from utils.apiUrl import KOREAN_CITIES
+# Load environment variables
+load_dotenv()
 
-
-# 백엔드 API URL 설정
+# Backend API URL
 BACKEND_URL = "http://localhost:8080"
 
 def run_backend():
-    """백엔드 서버를 실행하는 함수"""
+    """Run the backend server"""
     try:
         uvicorn.run("backend:app", host="0.0.0.0", port=8080, reload=False)
     except Exception as e:
-        print(f"백엔드 서버 실행 중 오류 발생: {e}")
+        print(f"Backend server error: {e}")
         sys.exit(1)
 
-# 백엔드 서버를 별도 스레드로 실행
+# Run backend server in a separate thread
 backend_thread = threading.Thread(target=run_backend, daemon=True)
 backend_thread.start()
 
 from test import get_price_data, get_satellite_data
-
 
 app = FastAPI()
 
