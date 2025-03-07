@@ -831,7 +831,7 @@ async def send_verification_email(email: EmailStr):
             
             인증 코드: {verification_code}
             
-            이 코드는 5분 동안만 유효합니다.
+            이 코드는 3분 동안만 유효합니다.
             """,
             subtype="plain"
         )
