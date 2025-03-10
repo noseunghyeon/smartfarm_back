@@ -28,7 +28,9 @@ import sys
 from backend import CommentCreate, CommentUpdate
 import random
 from routes.youtube import router as youtube_router
+from routes.news import router as news_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
+
 
 # Load environment variables
 load_dotenv()
@@ -1212,6 +1214,9 @@ async def get_user_info(current_user: str = Depends(get_current_user)):
 
 # YouTube 라우터 포함
 app.include_router(youtube_router)
+
+# News 라우터 포함
+app.include_router(news_router)
 
 if __name__ == "__main__":
     print("Server is running on port 8000")
