@@ -18,9 +18,13 @@ passlib[bcrypt]>=1.7.4
 sqlalchemy>=1.4.41
 pyjwt>=2.6.0
 email-validator>=2.0.0
-# uvicorn app:app --reload --host 0.0.0.0 --port 8000 # FastAPI 실행
-# pip install fastapi-mail
-# pip install httpx
-# npm install bcrypt
+google-api-python-client
+fastapi-mail
+httpx
+bcrypt
+langchain_openai
+langchain-community 
+langchain-openai 
+langgraph
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
