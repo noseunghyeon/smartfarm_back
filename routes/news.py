@@ -27,7 +27,7 @@ async def get_news(query: str = Query(..., description="농업 관련 키워드"
         # 요청 매개변수
         params = {
             "query": query,
-            "display": 10,  # 한 번에 가져올 뉴스 개수
+            "display": 6,  # 한 번에 가져올 뉴스 개수
             "start": 1,     # 시작 인덱스
             "sort": "date"  # 정렬 기준 (date: 날짜순)
         }
