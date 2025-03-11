@@ -3,6 +3,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from html import unescape
 
 router = APIRouter()
 
@@ -28,7 +29,7 @@ async def get_news(query: str = Query(..., description="채소 키우는법")):
         # 요청 매개변수
         params = {
             "query": query,
-            "display": 30,  # 한 번에 가져올 뉴스 개수
+            "display": 18,  # 한 번에 가져올 뉴스 개수
             "start": 1,    # 시작 인덱스
             "sort": "date" # 정렬 기준 (date: 날짜순)
         }
@@ -40,12 +41,19 @@ async def get_news(query: str = Query(..., description="채소 키우는법")):
         # JSON 응답에서 뉴스 항목 추출
         news_items = response.json().get('items', [])
         
-        # 각 뉴스 항목에 대해 이미지 URL 추가 및 description의 HTML 태그 제거 처리
+        # 각 뉴스 항목에 대해 이미지 URL 추가 및 HTML 태그 제거 처리 (title 및 description)
         for item in news_items:
             item['imageUrl'] = await extract_image_url(item['link'])
+            
+            # 타이틀 필드의 HTML 태그 제거 및 엔티티 디코딩
+            if 'title' in item:
+                clean_title = BeautifulSoup(item['title'], 'html.parser').get_text()
+                item['title'] = unescape(clean_title)
+            
+            # description 필드의 HTML 태그 제거 및 엔티티 디코딩
             if 'description' in item:
-                # HTML 태그 제거 (예: <b> 태그 제거)
-                item['description'] = BeautifulSoup(item['description'], 'html.parser').get_text()
+                clean_text = BeautifulSoup(item['description'], 'html.parser').get_text()
+                item['description'] = unescape(clean_text)
         
         # JSON 응답 반환
         return {"items": news_items}
