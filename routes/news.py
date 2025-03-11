@@ -28,7 +28,7 @@ async def get_news(query: str = Query(..., description="채소 키우는법")):
         # 요청 매개변수
         params = {
             "query": query,
-            "display": 3,  # 한 번에 가져올 뉴스 개수
+            "display": 12,  # 한 번에 가져올 뉴스 개수
             "start": 1,    # 시작 인덱스
             "sort": "date" # 정렬 기준 (date: 날짜순)
         }
@@ -40,9 +40,12 @@ async def get_news(query: str = Query(..., description="채소 키우는법")):
         # JSON 응답에서 뉴스 항목 추출
         news_items = response.json().get('items', [])
         
-        # 각 뉴스 항목에 대해 이미지 URL 추가
+        # 각 뉴스 항목에 대해 이미지 URL 추가 및 description의 HTML 태그 제거 처리
         for item in news_items:
             item['imageUrl'] = await extract_image_url(item['link'])
+            if 'description' in item:
+                # HTML 태그 제거 (예: <b> 태그 제거)
+                item['description'] = BeautifulSoup(item['description'], 'html.parser').get_text()
         
         # JSON 응답 반환
         return {"items": news_items}
@@ -82,8 +85,8 @@ async def extract_image_url(link: str):
             return img_tag['src']
         
         # 기본 이미지 URL 반환
-        return "https://example.com/default-image.jpg"  # 기본 이미지 URL
+        return "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"  # 기본 이미지 URL
     
     except Exception as e:
         print(f"이미지 URL 추출 중 오류 발생: {e}")
-        return "https://example.com/default-image.jpg"  # 기본 이미지 URL
+        return "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"  # 기본 이미지 URL
