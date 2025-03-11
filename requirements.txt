@@ -26,5 +26,7 @@ langchain_openai
 langchain-community 
 langchain-openai 
 langgraph
+beautifulsoup4
+requests
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000

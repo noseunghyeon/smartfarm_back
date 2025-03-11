@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Query
 import requests
 import os
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+from html import unescape
 
 router = APIRouter()
 
@@ -13,7 +15,7 @@ NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
 @router.get("/api/news")
-async def get_news(query: str = Query(..., description="농업 관련 키워드")):
+async def get_news(query: str = Query(..., description="채소 키우는법")):
     try:
         # 네이버 뉴스 API 엔드포인트 URL
         url = "https://openapi.naver.com/v1/search/news.json"
@@ -27,17 +29,72 @@ async def get_news(query: str = Query(..., description="농업 관련 키워드"
         # 요청 매개변수
         params = {
             "query": query,
-            "display": 10,  # 한 번에 가져올 뉴스 개수
-            "start": 1,     # 시작 인덱스
-            "sort": "date"  # 정렬 기준 (date: 날짜순)
+            "display": 18,  # 한 번에 가져올 뉴스 개수
+            "start": 1,    # 시작 인덱스
+            "sort": "date" # 정렬 기준 (date: 날짜순)
         }
         
         # API 요청
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()  # HTTP 오류 발생 시 예외 발생
         
+        # JSON 응답에서 뉴스 항목 추출
+        news_items = response.json().get('items', [])
+        
+        # 각 뉴스 항목에 대해 이미지 URL 추가 및 HTML 태그 제거 처리 (title 및 description)
+        for item in news_items:
+            item['imageUrl'] = await extract_image_url(item['link'])
+            
+            # 타이틀 필드의 HTML 태그 제거 및 엔티티 디코딩
+            if 'title' in item:
+                clean_title = BeautifulSoup(item['title'], 'html.parser').get_text()
+                item['title'] = unescape(clean_title)
+            
+            # description 필드의 HTML 태그 제거 및 엔티티 디코딩
+            if 'description' in item:
+                clean_text = BeautifulSoup(item['description'], 'html.parser').get_text()
+                item['description'] = unescape(clean_text)
+        
         # JSON 응답 반환
-        return response.json()
+        return {"items": news_items}
+    
     except requests.exceptions.RequestException as e:
         print(f"네이버 뉴스 API 호출 중 오류 발생: {e}")
-        raise HTTPException(status_code=500, detail="뉴스 데이터를 가져오는데 실패했습니다") 
+        raise HTTPException(status_code=500, detail="뉴스 데이터를 가져오는데 실패했습니다")
+
+
+async def extract_image_url(link: str):
+    try:
+        # 뉴스 링크에서 웹 페이지 내용 가져오기
+        page_response = requests.get(link)
+        page_response.raise_for_status()
+        
+        # HTML 파싱
+        soup = BeautifulSoup(page_response.content, 'html.parser')
+        
+        # 1. OG 이미지 (Open Graph) 메타 태그에서 대표 이미지 URL 추출
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            return og_image['content']
+        
+        # 2. Twitter 카드 메타 태그에서 대표 이미지 URL 추출
+        twitter_image = soup.find('meta', name='twitter:image')
+        if twitter_image and twitter_image.get('content'):
+            return twitter_image['content']
+        
+        # 3. 대표 이미지를 클래스나 id로 추출 (사이트에 따라 다름)
+        img_tag = soup.find('img', class_='article-image')  # 'article-image'는 예시입니다. 실제 페이지에서 확인
+        if img_tag and img_tag.get('src'):
+            return img_tag['src']
+        
+        # 4. 마지막으로 일반 이미지 태그에서 추출
+        img_tag = soup.find('img', src=True)
+        if img_tag and 'src' in img_tag.attrs:
+            return img_tag['src']
+        
+        # 기본 이미지 URL 반환
+        return "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"  # 기본 이미지 URL
+    
+    except Exception as e:
+        print(f"이미지 URL 추출 중 오류 발생: {e}")
+        return "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"  # 기본 이미지 URL
