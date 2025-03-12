@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime
 from typing import Optional, List, Dict
@@ -13,6 +13,15 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
 
+# kiwi_model 관련 import 추가
+import torch
+import onnxruntime
+import numpy as np
+from torchvision import transforms
+import io
+from PIL import Image
+import requests
+
 app = FastAPI()
 
 # CORS 미들웨어 설정
@@ -26,6 +35,74 @@ app.add_middleware(
 
 # 대화 기록 초기화
 app.state.conversation_history = []
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# kiwi_model 관련 코드 추가
+# 클래스 레이블 정의
+CLASS_LABELS = {
+    0: "잎_점무늬병",
+    1: "잎_정상",
+    2: "잎_총채벌레"
+}
+
+# ONNX 모델 다운로드
+def download_onnx_model():
+    model_path = "model.onnx"
+    if not os.path.exists(model_path):
+        url = "https://huggingface.co/jjiw/densenet161-onnx/resolve/main/model.onnx"
+        response = requests.get(url)
+        with open(model_path, "wb") as f:
+            f.write(response.content)
+    return model_path
+
+# ONNX 런타임 세션 생성
+model_path = download_onnx_model()
+session = onnxruntime.InferenceSession(model_path)
+
+# 이미지 전처리 함수
+def preprocess_image(image):
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(image)
+    return img_tensor.numpy()
+
+# 예측 함수
+def predict(image):
+    input_data = preprocess_image(image)
+    input_name = session.get_inputs()[0].name
+    outputs = session.run(None, {input_name: input_data.reshape(1, 3, 224, 224)})
+    probabilities = torch.nn.functional.softmax(torch.tensor(outputs[0][0]), dim=0)
+    predicted_class_idx = probabilities.argmax().item()
+    predicted_class_label = CLASS_LABELS.get(predicted_class_idx, f"알 수 없는 클래스 {predicted_class_idx}")
+    confidence = probabilities[predicted_class_idx].item()
+    
+    return {
+        "class": predicted_class_label,
+        "confidence": float(confidence),
+        "class_index": predicted_class_idx
+    }
+
+# kiwi_model 엔드포인트 추가
+@app.post("/kiwi_predict")
+async def kiwi_predict(file: UploadFile = File(...)):
+    try:
+        logger.info(f"Received file: {file.filename}")
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        result = predict(image)
+        logger.info(f"Prediction result: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error processing image: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 # 챗봇 엔드포인트
 @app.post("/chat", response_model=ChatResponse)

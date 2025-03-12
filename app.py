@@ -177,13 +177,39 @@ async def get_weather(city: str):
         }
 
 @app.post("/predict")
-async def predict_chamoe(file: UploadFile = File(...)):
+async def predict_disease(file: UploadFile = File(...)):
     try:
-        result = await predict_disease(file)
-        return result
+        async with httpx.AsyncClient() as client:
+            form_data = {"file": await file.read()}
+            files = {"file": (file.filename, form_data["file"], file.content_type)}
+            
+            # backend 서버로 요청 전송
+            response = await client.post(
+                "http://localhost:8080/kiwi_predict",
+                files=files
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "data": result,
+                    "message": "이미지 분석이 완료되었습니다"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "이미지 분석 실패",
+                    "message": "이미지 분석 중 오류가 발생했습니다"
+                }
+                
     except Exception as e:
         print(f"Prediction Error: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "이미지 분석 중 오류가 발생했습니다"
+        }
 
 @app.get("/predictions/{crop}/{city}")
 async def get_predictions(crop: str, city: str):
@@ -1219,5 +1245,10 @@ app.include_router(youtube_router)
 app.include_router(news_router)
 
 if __name__ == "__main__":
-    print("Server is running on port 8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("Main Server is running on port 8000")
+    
+    try:
+        # 메인 앱 실행
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    finally:
+        pass

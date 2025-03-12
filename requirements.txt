@@ -28,5 +28,14 @@ langchain-openai
 langgraph
 beautifulsoup4
 requests
+torch
+torchvision
+onnxruntime
+fastapi
+python-multipart
+uvicorn
+pillow
+requests
+numpy
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
