@@ -177,25 +177,23 @@ async def get_weather(city: str):
         }
 
 @app.post("/predict")
-async def predict_disease(file: UploadFile = File(...)):
+async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi"):
     try:
         async with httpx.AsyncClient() as client:
             form_data = {"file": await file.read()}
             files = {"file": (file.filename, form_data["file"], file.content_type)}
             
-            # backend 서버로 요청 전송
+            # 작물 유형에 따라 다른 엔드포인트 호출
+            endpoint = "/kiwi_predict" if crop_type == "kiwi" else "/chamoe_predict"
+            
             response = await client.post(
-                "http://localhost:8080/kiwi_predict",
+                f"http://localhost:8080{endpoint}",
                 files=files
             )
             
             if response.status_code == 200:
                 result = response.json()
-                return {
-                    "success": True,
-                    "data": result,
-                    "message": "이미지 분석이 완료되었습니다"
-                }
+                return result
             else:
                 return {
                     "success": False,

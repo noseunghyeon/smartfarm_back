@@ -48,19 +48,31 @@ CLASS_LABELS = {
     2: "잎_총채벌레"
 }
 
-# ONNX 모델 다운로드
-def download_onnx_model():
-    model_path = "model.onnx"
-    if not os.path.exists(model_path):
-        url = "https://huggingface.co/jjiw/densenet161-onnx/resolve/main/model.onnx"
-        response = requests.get(url)
-        with open(model_path, "wb") as f:
-            f.write(response.content)
-    return model_path
+# 키위 모델 세션 생성 함수
+def get_kiwi_model_session():
+    url = "https://huggingface.co/jjiw/densenet161-onnx/resolve/main/model.onnx"
+    response = requests.get(url)
+    model_bytes = io.BytesIO(response.content)
+    session = onnxruntime.InferenceSession(model_bytes.getvalue())
+    return session
 
-# ONNX 런타임 세션 생성
-model_path = download_onnx_model()
-session = onnxruntime.InferenceSession(model_path)
+# 참외 모델 세션 생성 함수
+def get_chamoe_model_session():
+    url = "https://huggingface.co/jjiw/disease-classifier-onnx/resolve/main/model.onnx"  # 참외 모델 URL 수정
+    response = requests.get(url)
+    model_bytes = io.BytesIO(response.content)
+    session = onnxruntime.InferenceSession(model_bytes.getvalue())
+    return session
+
+# 모델 세션 생성
+try:
+    kiwi_session = get_kiwi_model_session()
+    chamoe_session = get_chamoe_model_session()
+    logger.info("Both models loaded successfully")
+except Exception as e:
+    logger.error(f"Error loading models: {str(e)}")
+    kiwi_session = None
+    chamoe_session = None
 
 # 이미지 전처리 함수
 def preprocess_image(image):
@@ -75,8 +87,8 @@ def preprocess_image(image):
 # 예측 함수
 def predict(image):
     input_data = preprocess_image(image)
-    input_name = session.get_inputs()[0].name
-    outputs = session.run(None, {input_name: input_data.reshape(1, 3, 224, 224)})
+    input_name = kiwi_session.get_inputs()[0].name
+    outputs = kiwi_session.run(None, {input_name: input_data.reshape(1, 3, 224, 224)})
     probabilities = torch.nn.functional.softmax(torch.tensor(outputs[0][0]), dim=0)
     predicted_class_idx = probabilities.argmax().item()
     predicted_class_label = CLASS_LABELS.get(predicted_class_idx, f"알 수 없는 클래스 {predicted_class_idx}")
@@ -412,6 +424,95 @@ async def delete_comment(comment_id: int, user_email: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+# 참외 모델을 위한 클래스 레이블 수정
+CHAMOE_CLASS_LABELS = {
+    0: "downy_mildew_chamoe",  # 노균병
+    1: "healthy_chamoe",       # 정상
+    2: "powdery_mildew_chamoe" # 흰가루병
+}
+
+# 참외 이미지 전처리 함수 수정
+def preprocess_chamoe_image(image):
+    # 이미지 크기 조정
+    image = image.resize((224, 224))
+    
+    # PIL Image를 numpy array로 변환
+    img_array = np.array(image)
+    
+    # 정규화 (0-1 범위로)
+    img_array = img_array.astype('float32') / 255.0
+    
+    # 차원 순서 변경 없이 배치 차원 추가
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    return img_array
+
+# 참외 예측 함수 수정
+def predict_chamoe(image):
+    try:
+        # 이미지 전처리
+        input_data = preprocess_chamoe_image(image)
+        
+        # 입력 이름 가져오기
+        input_name = chamoe_session.get_inputs()[0].name
+        
+        # ONNX 모델로 예측 수행
+        outputs = chamoe_session.run(None, {input_name: input_data})
+        probabilities = torch.nn.functional.softmax(torch.tensor(outputs[0][0]), dim=0)
+        predicted_class_idx = probabilities.argmax().item()
+        
+        # 한글 클래스 레이블 매핑
+        korean_labels = {
+            "downy_mildew_chamoe": "노균병",
+            "healthy_chamoe": "정상",
+            "powdery_mildew_chamoe": "흰가루병"
+        }
+        
+        predicted_class_label = CHAMOE_CLASS_LABELS.get(predicted_class_idx)
+        korean_label = korean_labels.get(predicted_class_label, "알 수 없는 클래스")
+        confidence = probabilities[predicted_class_idx].item()
+        
+        # 모든 클래스의 확률 계산 (한글 레이블 사용)
+        all_probabilities = {
+            korean_labels[CHAMOE_CLASS_LABELS[i]]: float(probabilities[i])
+            for i in range(len(CHAMOE_CLASS_LABELS))
+        }
+        
+        return {
+            "predicted_class": korean_label,
+            "confidence": float(confidence),
+            "class_probabilities": all_probabilities
+        }
+    except Exception as e:
+        logger.error(f"참외 예측 중 오류 발생: {str(e)}")
+        raise
+
+# 참외 예측 엔드포인트 추가
+@app.post("/chamoe_predict")
+async def chamoe_predict(file: UploadFile = File(...)):
+    try:
+        if chamoe_session is None:
+            raise HTTPException(
+                status_code=503, 
+                detail="Chamoe model is not available"
+            )
+            
+        logger.info(f"Received file for chamoe prediction: {file.filename}")
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        result = predict_chamoe(image)
+        logger.info(f"Chamoe prediction result: {result}")
+        return {
+            "success": True,
+            "data": result,
+            "message": "이미지 분석이 완료되었습니다"
+        }
+    except Exception as e:
+        logger.error(f"Error processing chamoe image: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
