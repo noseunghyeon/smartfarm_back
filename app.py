@@ -219,6 +219,10 @@ async def get_predictions(crop: str, city: str):
             from testpython.cabbage2 import predict_prices
         elif crop == "apple":
             from testpython.appleprice import predict_prices
+        elif crop == "broccoli":
+            from testpython.broccoli import predict_prices
+        elif crop == "carrot":
+            from testpython.carrot import predict_prices
         elif crop == "onion":
             from testpython.onion2 import predict_prices
         elif crop == "potato":
