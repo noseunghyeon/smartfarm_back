@@ -184,7 +184,14 @@ async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi")
             files = {"file": (file.filename, form_data["file"], file.content_type)}
             
             # 작물 유형에 따라 다른 엔드포인트 호출
-            endpoint = "/kiwi_predict" if crop_type == "kiwi" else "/chamoe_predict"
+            if crop_type == "kiwi":
+                endpoint = "/kiwi_predict"
+            elif crop_type == "chamoe":
+                endpoint = "/chamoe_predict"
+            elif crop_type == "plant":  # 식물 분류 엔드포인트 추가
+                endpoint = "/plant_predict"
+            else:
+                raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
             
             response = await client.post(
                 f"http://localhost:8080{endpoint}",
