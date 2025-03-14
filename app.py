@@ -178,13 +178,44 @@ async def get_weather(city: str):
         }
 
 @app.post("/predict")
-async def predict_chamoe(file: UploadFile = File(...)):
+async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi"):
     try:
-        result = await predict_disease(file)
-        return result
+        async with httpx.AsyncClient() as client:
+            form_data = {"file": await file.read()}
+            files = {"file": (file.filename, form_data["file"], file.content_type)}
+            
+            # 작물 유형에 따라 다른 엔드포인트 호출
+            if crop_type == "kiwi":
+                endpoint = "/kiwi_predict"
+            elif crop_type == "chamoe":
+                endpoint = "/chamoe_predict"
+            elif crop_type == "plant":  # 식물 분류 엔드포인트 추가
+                endpoint = "/plant_predict"
+            else:
+                raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
+            
+            response = await client.post(
+                f"http://localhost:8080{endpoint}",
+                files=files
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result
+            else:
+                return {
+                    "success": False,
+                    "error": "이미지 분석 실패",
+                    "message": "이미지 분석 중 오류가 발생했습니다"
+                }
+                
     except Exception as e:
         print(f"Prediction Error: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "이미지 분석 중 오류가 발생했습니다"
+        }
 
 @app.get("/predictions/{crop}/{city}")
 async def get_predictions(crop: str, city: str):
@@ -196,6 +227,10 @@ async def get_predictions(crop: str, city: str):
             from testpython.cabbage2 import predict_prices
         elif crop == "apple":
             from testpython.appleprice import predict_prices
+        elif crop == "broccoli":
+            from testpython.broccoli import predict_prices
+        elif crop == "carrot":
+            from testpython.carrot import predict_prices
         elif crop == "onion":
             from testpython.onion2 import predict_prices
         elif crop == "potato":
@@ -1223,5 +1258,10 @@ app.include_router(news_router)
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 
 if __name__ == "__main__":
-    print("Server is running on port 8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("Main Server is running on port 8000")
+    
+    try:
+        # 메인 앱 실행
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    finally:
+        pass
