@@ -30,6 +30,7 @@ import random
 from routes.youtube import router as youtube_router
 from routes.news import router as news_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
+from routes.Crawler import crawler_endpoint
 
 
 # Load environment variables
@@ -1217,6 +1218,9 @@ app.include_router(youtube_router)
 
 # News 라우터 포함
 app.include_router(news_router)
+
+# Crawler 라우터 포함
+app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 
 if __name__ == "__main__":
     print("Server is running on port 8000")
