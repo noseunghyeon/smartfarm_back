@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request,Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -504,6 +504,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 댓글 관련 API 엔드포인트
+@app.get("/api/comments/user")
+async def get_my_comments(request: Request):
+    try:
+        # 1. 토큰 추출
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            raise HTTPException(status_code=401, detail="인증 헤더가 없습니다")
+            
+        logger.info(f"[App] 수신된 인증 헤더: {auth_header}")
+        
+        # 2. backend로 요청 전달
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                'http://localhost:8080/api/comments/user',
+                headers={'Authorization': auth_header}
+            )
+            
+            logger.info(f"[App] Backend 응답 상태 코드: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"[App] Backend 응답 에러: {response.text}")
+                return Response(
+                    content=response.content,
+                    status_code=response.status_code,
+                    headers=dict(response.headers)
+                )
+            
+            return response.json()
+            
+    except Exception as e:
+        logger.error(f"[App] 에러 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/comments/{post_id}")
 async def get_comments(post_id: int):
     async with httpx.AsyncClient() as client:
@@ -1252,6 +1285,57 @@ app.include_router(youtube_router)
 
 # News 라우터 포함
 app.include_router(news_router)
+
+# 내 게시글 조회 엔드포인트
+@app.get("/api/write/user")  # URL 변경
+async def get_my_posts(current_user: str = Depends(get_current_user)):
+    try:
+        db = SessionLocal()
+        
+        # 사용자 ID 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 사용자의 게시글 조회
+        posts_query = text("""
+            SELECT w.*, a.email 
+            FROM write w 
+            JOIN auth a ON w.user_id = a.user_id 
+            WHERE w.user_id = :user_id 
+            ORDER BY w.date DESC
+        """)
+        
+        result = db.execute(posts_query, {"user_id": user_id})
+        posts = result.fetchall()
+        
+        posts_data = []
+        for post in posts:
+            post_dict = {
+                "post_id": post.post_id,
+                "title": post.title,
+                "content": post.content,
+                "date": post.date,
+                "category": post.category,
+                "community_type": post.community_type,
+                "email": post.email
+            }
+            posts_data.append(post_dict)
+        
+        return {
+            "success": True,
+            "data": posts_data,
+            "message": "게시글 조회 성공"
+        }
+        
+    except Exception as e:
+        logger.error(f"게시글 조회 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
