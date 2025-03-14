@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, Header, File, UploadFile, Security
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime
 from typing import Optional, List, Dict
@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from test import get_price_data
 import logging
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
 
@@ -220,20 +220,54 @@ class CommentCreate(BaseModel):
 class CommentUpdate(BaseModel):
     content: str
 
-# JWT 설정
+# JWT 관련 설정
 SECRET_KEY = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
+
+# OAuth2 스키마 설정
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+security = HTTPBearer()
+
+# 현재 사용자 가져오기 함수
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401)
-        return user_id
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401)
+        logger.info("토큰 검증 시작")
+        
+        if not token:
+            logger.error("토큰이 없음")
+            raise HTTPException(
+                status_code=401,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        try:
+            # JWT 토큰 디코딩
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email: str = payload.get("sub")
+            
+            if email is None:
+                logger.error("토큰에 이메일 정보가 없음")
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Could not validate credentials"
+                )
+                
+            logger.info(f"토큰에서 추출한 이메일: {email}")
+            return email
+            
+        except jwt.PyJWTError as e:
+            logger.error(f"JWT 검증 실패: {str(e)}")
+            raise HTTPException(
+                status_code=401,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+    except Exception as e:
+        logger.error(f"토큰 검증 중 예상치 못한 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 def read_root():
@@ -249,7 +283,105 @@ async def get_price():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 댓글 조회
+# 먼저 특정 경로를 정의
+@app.get("/api/comments/user")
+async def get_my_comments(authorization: str = Header(None)):
+    try:
+        logger.info("댓글 조회 시작")
+        
+        # 토큰 검증
+        if not authorization or not authorization.startswith("Bearer "):
+            logger.error("인증 헤더가 없거나 잘못된 형식")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authorization header"
+            )
+        
+        token = authorization.split(" ")[1]
+        try:
+            # JWT 토큰 디코딩
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            current_user = payload.get("sub")  # 이메일 추출
+            
+            if not current_user:
+                logger.error("토큰에 이메일 정보가 없음")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid token payload"
+                )
+                
+            logger.info(f"인증된 사용자: {current_user}")
+            
+        except jwt.ExpiredSignatureError:
+            logger.error("만료된 토큰")
+            raise HTTPException(
+                status_code=401,
+                detail="Token has expired"
+            )
+        except jwt.JWTError as e:
+            logger.error(f"JWT 검증 실패: {str(e)}")
+            raise HTTPException(
+                status_code=401,
+                detail="Could not validate credentials"
+            )
+        
+        db = SessionLocal()
+        
+        # 사용자 ID 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            logger.error(f"사용자를 찾을 수 없음: {current_user}")
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+        
+        logger.info(f"사용자 ID: {user_id}")
+        
+        # 댓글 조회
+        comments_query = text("""
+            SELECT c.*, w.title as post_title, a.email 
+            FROM comments c 
+            JOIN write w ON c.post_id = w.post_id 
+            JOIN auth a ON c.user_id = a.user_id 
+            WHERE c.user_id = :user_id 
+            ORDER BY c.created_at DESC
+        """)
+        
+        result = db.execute(comments_query, {"user_id": user_id})
+        comments = result.fetchall()
+        
+        logger.info(f"조회된 댓글 수: {len(comments) if comments else 0}")
+        
+        comments_data = []
+        for comment in comments:
+            comment_dict = {
+                "comment_id": comment.comment_id,
+                "post_id": comment.post_id,
+                "post_title": comment.post_title,
+                "content": comment.content,
+                "created_at": comment.created_at.isoformat(),
+                "email": comment.email
+            }
+            comments_data.append(comment_dict)
+        
+        return {
+            "success": True,
+            "data": comments_data,
+            "message": "댓글 조회 성공"
+        }
+        
+    except Exception as e:
+        logger.error(f"댓글 조회 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
+
+# 그 다음 동적 파라미터를 사용하는 경로를 정의
 @app.get("/api/comments/{post_id}")
 async def get_comments(post_id: int):
     try:
@@ -654,6 +786,57 @@ async def plant_predict(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Error processing plant classification: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+# 내 게시글 조회 엔드포인트 수정
+@app.get("/api/write/user")
+async def get_my_posts(current_user: str = Depends(get_current_user)):
+    try:
+        db = SessionLocal()
+        
+        # 사용자 ID 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 사용자의 게시글 조회
+        posts_query = text("""
+            SELECT w.*, a.email 
+            FROM write w 
+            JOIN auth a ON w.user_id = a.user_id 
+            WHERE w.user_id = :user_id 
+            ORDER BY w.date DESC
+        """)
+        
+        result = db.execute(posts_query, {"user_id": user_id})
+        posts = result.fetchall()
+        
+        posts_data = []
+        for post in posts:
+            post_dict = {
+                "post_id": post.post_id,
+                "title": post.title,
+                "content": post.content,
+                "date": post.date,
+                "category": post.category,
+                "community_type": post.community_type,
+                "email": post.email
+            }
+            posts_data.append(post_dict)
+        
+        return {
+            "success": True,
+            "data": posts_data,
+            "message": "게시글 조회 성공"
+        }
+        
+    except Exception as e:
+        logger.error(f"게시글 조회 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     import uvicorn
