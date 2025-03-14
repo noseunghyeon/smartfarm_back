@@ -60,7 +60,7 @@ html = res.text
 soup = BeautifulSoup(html, 'html.parser')
 print(soup.find_all('tr'))
 
-def scrape_news_links(url: str = 'https://www.nongmin.com/list/19'):
+def scrape_news_links(url: str = 'https://www.nongmin.com/list/19', pages: int = 1):
     # 헤더 설정 (봇 차단 방지를 위한 일반 브라우저 User-Agent 사용)
     headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -69,54 +69,57 @@ def scrape_news_links(url: str = 'https://www.nongmin.com/list/19'):
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     }
     
-    # GET 요청으로 전달받은 url의 페이지 내용 가져오기
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # 요청 실패 시 예외 발생
+    aggregated_links = []
     
-    html_content = response.text
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    news_links = []
-    
-    # 새 뉴스 영역: <div class="news_list news_content">
-    news_section = soup.find('div', class_='news_list news_content')
-    if not news_section:
-        return news_links
-    
-    # 기사 리스트는 LEFT_NEWS_LIST 영역 아래에 있는 <ul class="common_list">
-    left_news_list_container = news_section.find('div', attrs={'data-layout-area': 'LEFT_NEWS_LIST'})
-    if not left_news_list_container:
-        return news_links
-    
-    common_list = left_news_list_container.find('ul', class_='common_list')
-    if not common_list:
-        return news_links
-
-    # 각 <li> 항목 내의 <a> 태그에서 기사 링크 및 제목 추출
-    for li in common_list.find_all('li'):
-        a_tag = li.find('a', href=True)
-        if not a_tag:
-            continue
-
-        link_href = a_tag['href']
-        # '/article/'로 시작하는 경우에만 처리합니다.
-        if not link_href.startswith('/article/'):
-            continue
-
-        # 기사의 제목은 <pre class="tit"> 태그 내부에 있음
-        title_pre = a_tag.find('pre', class_='tit')
-        if title_pre:
-            title = title_pre.get_text(strip=True)
+    # 지정된 페이지 수만큼 반복 (페이지네이션 처리)
+    for page in range(1, pages + 1):
+        # 첫 페이지는 기본 url 사용, 그 외에는 ?page=번호 를 추가합니다.
+        if page == 1:
+            page_url = url
         else:
-            title = a_tag.get_text(strip=True)
-
-        full_link = urljoin(url, link_href)
-        news_links.append({
-            'title': title,
-            'link': full_link
-        })
+            page_url = f"{url}?page={page}"
+            
+        response = requests.get(page_url, headers=headers)
+        response.raise_for_status()
         
-    return news_links
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 새 뉴스 영역: <div class="news_list news_content">
+        news_section = soup.find('div', class_='news_list news_content')
+        if not news_section:
+            continue
+        
+        # 기사 리스트는 LEFT_NEWS_LIST 영역 아래에 있는 <ul class="common_list">
+        left_news_list_container = news_section.find('div', attrs={'data-layout-area': 'LEFT_NEWS_LIST'})
+        if not left_news_list_container:
+            continue
+        
+        common_list = left_news_list_container.find('ul', class_='common_list')
+        if not common_list:
+            continue
+
+        # 각 <li> 항목 내의 <a> 태그에서 기사 링크 및 제목 추출
+        for li in common_list.find_all('li'):
+            a_tag = li.find('a', href=True)
+            if not a_tag:
+                continue
+
+            link_href = a_tag['href']
+            # '/article/'로 시작하는 경우에만 처리합니다.
+            if not link_href.startswith('/article/'):
+                continue
+
+            title_pre = a_tag.find('pre', class_='tit')
+            title = title_pre.get_text(strip=True) if title_pre else a_tag.get_text(strip=True)
+
+            full_link = urljoin(url, link_href)
+            aggregated_links.append({
+                'title': title,
+                'link': full_link
+            })
+        
+    return aggregated_links
 
 def scrape_news_image(article_url):
     """
