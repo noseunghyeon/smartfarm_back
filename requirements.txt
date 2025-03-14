@@ -28,10 +28,8 @@ langchain-openai
 langgraph
 beautifulsoup4
 requests
-<<<<<<< HEAD
 newspaper3k
 lxml_html_clean
-=======
 torch
 torchvision
 onnxruntime
@@ -41,6 +39,5 @@ uvicorn
 pillow
 requests
 numpy
->>>>>>> a5016e8c3fabec7b2014e9953bebfd020d163bb5
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000

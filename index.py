@@ -6,7 +6,7 @@ import sys
 import signal
 import psycopg2
 from typing import Optional
-from routes import weather_routes, news_routes, youtube_routes
+from routes import weather_routes, youtube_routes
 
 app = FastAPI()
 
@@ -22,7 +22,6 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(weather_routes.router)
 app.include_router(youtube_routes.router, prefix="/api")
-app.include_router(news_routes.router, prefix="/api")
 
 @app.get("/")
 async def root():

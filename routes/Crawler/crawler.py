@@ -41,7 +41,7 @@ stock_url = 'https://www.nongmin.com/economyMain'
 res = requests.get(stock_url)
 html = res.text # 응답에서 html 문서만 가져오기
 
-print(html)
+# print(html)
 
 # Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36
 # text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
@@ -60,10 +60,7 @@ html = res.text
 soup = BeautifulSoup(html, 'html.parser')
 print(soup.find_all('tr'))
 
-def scrape_news_links():
-    # 크롤링할 페이지 URL (새로운 구조)
-    url = 'https://www.nongmin.com/list/19'
-    
+def scrape_news_links(url: str = 'https://www.nongmin.com/list/19'):
     # 헤더 설정 (봇 차단 방지를 위한 일반 브라우저 User-Agent 사용)
     headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -72,7 +69,7 @@ def scrape_news_links():
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     }
     
-    # GET 요청으로 페이지 내용 가져오기
+    # GET 요청으로 전달받은 url의 페이지 내용 가져오기
     response = requests.get(url, headers=headers)
     response.raise_for_status()  # 요청 실패 시 예외 발생
     
