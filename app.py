@@ -30,6 +30,7 @@ import random
 from routes.youtube import router as youtube_router
 from routes.news import router as news_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
+from routes.Crawler import crawler_endpoint
 
 
 # Load environment variables
@@ -1286,6 +1287,7 @@ app.include_router(youtube_router)
 # News 라우터 포함
 app.include_router(news_router)
 
+<<<<<<< HEAD
 # 내 게시글 조회 엔드포인트
 @app.get("/api/write/user")  # URL 변경
 async def get_my_posts(current_user: str = Depends(get_current_user)):
@@ -1336,6 +1338,10 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+=======
+# Crawler 라우터 포함
+app.include_router(crawler_endpoint.router, prefix="/api/crawler")
+>>>>>>> d0dd3675ee9c79577117e3f6a1994b849e35f9e3
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
