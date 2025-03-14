@@ -1283,12 +1283,6 @@ async def get_user_info(current_user: str = Depends(get_current_user)):
 # YouTube 라우터 포함
 app.include_router(youtube_router)
 
-<<<<<<< HEAD
-=======
-# News 라우터 포함
-app.include_router(news_router)
-
-
 # 내 게시글 조회 엔드포인트
 @app.get("/api/write/user")  # URL 변경
 async def get_my_posts(current_user: str = Depends(get_current_user)):
@@ -1340,7 +1334,6 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
->>>>>>> be2550916794aa9f5ce8fef9f3e12492209f825f
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 
