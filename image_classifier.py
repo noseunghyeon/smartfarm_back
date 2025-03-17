@@ -9,6 +9,7 @@ import tensorflow as tf
 import logging
 from pydantic import BaseModel
 from typing import Dict, Optional
+import os
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -70,9 +71,15 @@ class ImageClassifier:
             url = "https://huggingface.co/jjiw/plant-classifier-h5/resolve/main/model.h5"
             response = requests.get(url)
             model_bytes = io.BytesIO(response.content)
+
+             # 임시 파일로 저장
+            temp_model_path = "temp_model.h5"
+            with open(temp_model_path, "wb") as f:
+                f.write(model_bytes.getvalue())
             
             # 바로 모델 로드
-            model = tf.keras.models.load_model(model_bytes)
+            model = tf.keras.models.load_model(temp_model_path)
+            os.remove(temp_model_path)
             
             return model
         except Exception as e:

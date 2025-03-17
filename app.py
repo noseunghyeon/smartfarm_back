@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request,Response
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -19,9 +19,8 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 import secrets
 import bcrypt
 from fastapi.responses import JSONResponse
-from jose import JWTError
-from fastapi.responses import Response
 import httpx
+import random
 from test import get_price_data
 import threading
 import sys
@@ -30,6 +29,9 @@ import random
 from routes.youtube import router as youtube_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
 from routes.Crawler import crawler_endpoint
+from image_classifier import classifier, ImageClassificationResponse
+from PIL import Image
+import io
 
 
 # Load environment variables
@@ -50,20 +52,6 @@ KOREAN_CITIES = {
 # Backend API URL
 BACKEND_URL = "http://localhost:8000"
 
-def run_backend():
-    """Run the backend server"""
-    try:
-        uvicorn.run("backend:app", host="0.0.0.0", port=8000, reload=False)
-    except Exception as e:
-        print(f"Backend server error: {e}")
-        sys.exit(1)
-
-# Run backend server in a separate thread
-backend_thread = threading.Thread(target=run_backend, daemon=True)
-backend_thread.start()
-
-from test import get_price_data, get_satellite_data
-
 app = FastAPI()
 
 # CORS 설정
@@ -78,9 +66,6 @@ app.add_middleware(
 )
 
 # 데이터베이스 설정
-load_dotenv()
-
-# PostgreSQL 연결 문자열 구성
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
@@ -215,49 +200,17 @@ async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi")
             "error": str(e),
             "message": "이미지 분석 중 오류가 발생했습니다"
         }
-
-@app.get("/predictions/{crop}/{city}")
-async def get_predictions(crop: str, city: str):
+    
+@app.post("/plant_predict", response_model=ImageClassificationResponse)
+async def plant_predict(file: UploadFile = File(...)):
     try:
-        from utils.apiUrl import fetchWeatherData
-        
-        # 작물에 따른 예측 모듈 선택
-        if crop == "cabbage":
-            from testpython.cabbage2 import predict_prices
-        elif crop == "apple":
-            from testpython.appleprice import predict_prices
-        elif crop == "broccoli":
-            from testpython.broccoli import predict_prices
-        elif crop == "carrot":
-            from testpython.carrot import predict_prices
-        elif crop == "onion":
-            from testpython.onion2 import predict_prices
-        elif crop == "potato":
-            from testpython.potato2 import predict_prices
-        elif crop == "cucumber":
-            from testpython.cucumber2 import predict_prices
-        elif crop == "tomato":
-            from testpython.tomato2 import predict_prices
-        elif crop == "spinach":
-            from testpython.spinach2 import predict_prices
-        elif crop == "strawberry":
-            from testpython.strawberry import predict_prices
-        else:
-            raise ValueError("지원하지 않는 작물입니다")
-        
-        weather_data = await fetchWeatherData(city)
-        predictions = predict_prices(weather_data)
-        
-        if 'error' in predictions:
-            raise Exception(predictions['error'])
-            
-        return {
-            "predictions": predictions,
-            "weather_data": weather_data['raw']
-        }
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_plant(image)
+        return result
     except Exception as e:
-        print(f"Error in predictions: {str(e)}")
-        return {"error": str(e)}
+        logger.error(f"식물 분류 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/satellite")
 async def get_satellite():
@@ -288,7 +241,7 @@ async def get_price():
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
+
 @app.post("/auth/register")
 async def register(user: UserCreate):
     try:

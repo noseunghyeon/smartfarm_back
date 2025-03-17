@@ -170,7 +170,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @app.get("/")
 def read_root():
-    return {"message": "농산물 가격 정보 API"}
+    return {"message": "농산물 가격 정보 API from backend"}
 
 @app.get("/api/price")
 async def get_price():
