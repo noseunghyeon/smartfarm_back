@@ -240,6 +240,8 @@ async def apple_predict(file: UploadFile = File(...)):
         logger.error(f"사과 예측 처리 오류: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
+
+
 @app.get("/api/satellite")
 async def get_satellite():
     """한반도 위성 구름 이미지 정보를 가져옵니다."""
@@ -1364,6 +1366,49 @@ app.state.conversation_history = []
 
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
+
+@app.get("/predictions/{crop}/{city}")
+async def get_predictions(crop: str, city: str):
+    try:
+        from utils.apiUrl import fetchWeatherData
+        
+        # 작물에 따른 예측 모듈 선택
+        if crop == "cabbage":
+            from testpython.cabbage2 import predict_prices
+        elif crop == "apple":
+            from testpython.appleprice import predict_prices
+        elif crop == "onion":
+            from testpython.onion2 import predict_prices
+        elif crop == "potato":
+            from testpython.potato2 import predict_prices
+        elif crop == "cucumber":
+            from testpython.cucumber2 import predict_prices
+        elif crop == "tomato":
+            from testpython.tomato2 import predict_prices
+        elif crop == "spinach":
+            from testpython.spinach2 import predict_prices
+        elif crop == "strawberry":
+            from testpython.strawberry import predict_prices
+        elif crop == "broccoli":
+            from testpython.broccoli import predict_prices
+        elif crop == "carrot":
+            from testpython.carrot import predict_prices
+        else:
+            raise ValueError("지원하지 않는 작물입니다")
+        
+        weather_data = await fetchWeatherData(city)
+        predictions = predict_prices(weather_data)
+        
+        if 'error' in predictions:
+            raise Exception(predictions['error'])
+            
+        return {
+            "predictions": predictions,
+            "weather_data": weather_data['raw']
+        }
+    except Exception as e:
+        print(f"Error in predictions: {str(e)}")
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
