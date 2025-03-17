@@ -48,12 +48,12 @@ KOREAN_CITIES = {
 }
 
 # Backend API URL
-BACKEND_URL = "http://localhost:8080"
+BACKEND_URL = "http://localhost:8000"
 
 def run_backend():
     """Run the backend server"""
     try:
-        uvicorn.run("backend:app", host="0.0.0.0", port=8080, reload=False)
+        uvicorn.run("backend:app", host="0.0.0.0", port=8000, reload=False)
     except Exception as e:
         print(f"Backend server error: {e}")
         sys.exit(1)
@@ -194,7 +194,7 @@ async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi")
                 raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
             
             response = await client.post(
-                f"http://localhost:8080{endpoint}",
+                f"http://localhost:8000{endpoint}",
                 files=files
             )
             
@@ -517,7 +517,7 @@ async def get_my_comments(request: Request):
         # 2. backend로 요청 전달
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                'http://localhost:8080/api/comments/user',
+                'http://localhost:8000/api/comments/user',
                 headers={'Authorization': auth_header}
             )
             
