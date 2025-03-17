@@ -21,6 +21,8 @@ import bcrypt
 from fastapi.responses import JSONResponse
 import httpx
 import random
+
+from test import get_price_data
 import requests
 from test import get_price_data, get_satellite_data
 import threading
@@ -49,6 +51,21 @@ KOREAN_CITIES = {
     "울산": "Ulsan",
     "제주": "Jeju"
 }
+
+class Comment(BaseModel):
+    comment_id: int
+    post_id: int
+    user_id: str
+    content: str
+    created_at: datetime
+
+class CommentCreate(BaseModel):
+    post_id: int
+    content: str
+    user_email: str
+
+class CommentUpdate(BaseModel):
+    content: str
 
 # Backend API URL
 BACKEND_URL = "http://localhost:8000"
