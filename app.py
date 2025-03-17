@@ -1270,6 +1270,51 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
+@app.post("/reset")
+async def reset_conversation():
+    """
+    대화 기록 초기화
+    """
+    app.state.conversation_history.clear()
+    return {"message": "대화 기록이 초기화 되었습니다."}
+
+# 챗봇 엔드포인트
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    농산물 재배법에 답해 드립니다. - 농산물 재배법 상담 챗봇
+    """
+    try:
+        # 기존 대화 기록 가져오기
+        conversation_history = app.state.conversation_history
+
+        # 현재 사용자의 입력 메시지 가져오기
+        current_message = request.contents[-1].parts[0].get("text", "") if request.contents else ""
+
+        # AI 응답 생성
+        response = await process_query(current_message, conversation_history)
+
+        # 응답 변환 및 반환
+        return ChatResponse(
+            candidates=[
+                ChatCandidate(
+                    content=ChatMessage(
+                        role="model",
+                        parts=[
+                            {
+                                "text": response
+                            }
+                        ]
+                    )
+                )
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'오류 발생: {str(e)}')
+
+# 대화 기록 초기화
+app.state.conversation_history = []
+
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 
