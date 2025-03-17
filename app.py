@@ -161,45 +161,28 @@ async def get_weather(city: str):
             "message": "날씨 데이터를 가져오는데 실패했습니다"
         }
 
-@app.post("/predict")
-async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi"):
+# 이미지 분류 엔드포인트들
+@app.post("/kiwi_predict", response_model=ImageClassificationResponse)
+async def kiwi_predict(file: UploadFile = File(...)):
     try:
-        async with httpx.AsyncClient() as client:
-            form_data = {"file": await file.read()}
-            files = {"file": (file.filename, form_data["file"], file.content_type)}
-            
-            # 작물 유형에 따라 다른 엔드포인트 호출
-            if crop_type == "kiwi":
-                endpoint = "/kiwi_predict"
-            elif crop_type == "chamoe":
-                endpoint = "/chamoe_predict"
-            elif crop_type == "plant":  # 식물 분류 엔드포인트 추가
-                endpoint = "/plant_predict"
-            else:
-                raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
-            
-            response = await client.post(
-                f"http://localhost:8000{endpoint}",
-                files=files
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result
-            else:
-                return {
-                    "success": False,
-                    "error": "이미지 분석 실패",
-                    "message": "이미지 분석 중 오류가 발생했습니다"
-                }
-                
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_kiwi(image)
+        return result
     except Exception as e:
-        print(f"Prediction Error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "이미지 분석 중 오류가 발생했습니다"
-        }
+        logger.error(f"키위 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/chamoe_predict", response_model=ImageClassificationResponse)
+async def chamoe_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_chamoe(image)
+        return result
+    except Exception as e:
+        logger.error(f"참외 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     
 @app.post("/plant_predict", response_model=ImageClassificationResponse)
 async def plant_predict(file: UploadFile = File(...)):
