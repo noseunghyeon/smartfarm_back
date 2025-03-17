@@ -21,7 +21,8 @@ import bcrypt
 from fastapi.responses import JSONResponse
 import httpx
 import random
-from test import get_price_data
+import requests
+from test import get_price_data, get_satellite_data
 import threading
 import sys
 from backend import CommentCreate, CommentUpdate
@@ -32,7 +33,7 @@ from routes.Crawler import crawler_endpoint
 from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
 import io
-
+import aiohttp
 
 # Load environment variables
 load_dotenv()
@@ -219,9 +220,11 @@ async def get_satellite():
         result = get_satellite_data()
         if result is None:
             raise HTTPException(status_code=500, detail="위성 데이터를 가져오는데 실패했습니다")
+        
+        # 응답 형식 수정
         return {
             "success": True,
-            "data": result,
+            "data": result.get("response", {}).get("body", {}).get("items", {}).get("item", []),
             "message": "위성 이미지 데이터를 성공적으로 가져왔습니다"
         }
     except Exception as e:
@@ -1289,7 +1292,6 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
 
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
-
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
