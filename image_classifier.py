@@ -71,12 +71,8 @@ class ImageClassifier:
             response = requests.get(url)
             model_bytes = io.BytesIO(response.content)
             
-            with open('temp_model.h5', 'wb') as f:
-                f.write(model_bytes.getvalue())
-            
-            model = tf.keras.models.load_model('temp_model.h5')
-            import os
-            os.remove('temp_model.h5')
+            # 바로 모델 로드
+            model = tf.keras.models.load_model(model_bytes)
             
             return model
         except Exception as e:
