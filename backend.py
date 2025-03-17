@@ -557,6 +557,51 @@ async def chamoe_predict(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"참외 예측 처리 오류: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/strawberry_predict", response_model=ImageClassificationResponse)
+async def strawberry_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_strawberry(image)
+        return result
+    except Exception as e:
+        logger.error(f"딸기 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/potato_predict", response_model=ImageClassificationResponse)
+async def potato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_potato(image)
+        return result
+    except Exception as e:
+        logger.error(f"감자 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/tomato_predict", response_model=ImageClassificationResponse)
+async def tomato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))    
+        result = await classifier.classify_tomato(image)
+        return result
+    except Exception as e:
+        logger.error(f"토마토 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/apple_predict", response_model=ImageClassificationResponse)
+async def apple_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_apple(image)
+        return result
+    except Exception as e:
+        logger.error(f"사과 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/plant_predict", response_model=ImageClassificationResponse)
 async def plant_predict(file: UploadFile = File(...)):

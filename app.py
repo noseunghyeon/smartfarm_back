@@ -162,45 +162,28 @@ async def get_weather(city: str):
             "message": "날씨 데이터를 가져오는데 실패했습니다"
         }
 
-@app.post("/predict")
-async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi"):
+# 이미지 분류 엔드포인트들
+@app.post("/kiwi_predict", response_model=ImageClassificationResponse)
+async def kiwi_predict(file: UploadFile = File(...)):
     try:
-        async with httpx.AsyncClient() as client:
-            form_data = {"file": await file.read()}
-            files = {"file": (file.filename, form_data["file"], file.content_type)}
-            
-            # 작물 유형에 따라 다른 엔드포인트 호출
-            if crop_type == "kiwi":
-                endpoint = "/kiwi_predict"
-            elif crop_type == "chamoe":
-                endpoint = "/chamoe_predict"
-            elif crop_type == "plant":  # 식물 분류 엔드포인트 추가
-                endpoint = "/plant_predict"
-            else:
-                raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
-            
-            response = await client.post(
-                f"http://localhost:8000{endpoint}",
-                files=files
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result
-            else:
-                return {
-                    "success": False,
-                    "error": "이미지 분석 실패",
-                    "message": "이미지 분석 중 오류가 발생했습니다"
-                }
-                
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_kiwi(image)
+        return result
     except Exception as e:
-        print(f"Prediction Error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "이미지 분석 중 오류가 발생했습니다"
-        }
+        logger.error(f"키위 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/chamoe_predict", response_model=ImageClassificationResponse)
+async def chamoe_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_chamoe(image)
+        return result
+    except Exception as e:
+        logger.error(f"참외 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     
 @app.post("/plant_predict", response_model=ImageClassificationResponse)
 async def plant_predict(file: UploadFile = File(...)):
@@ -211,6 +194,50 @@ async def plant_predict(file: UploadFile = File(...)):
         return result
     except Exception as e:
         logger.error(f"식물 분류 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/strawberry_predict", response_model=ImageClassificationResponse)
+async def strawberry_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_strawberry(image)
+        return result
+    except Exception as e:
+        logger.error(f"딸기 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/potato_predict", response_model=ImageClassificationResponse)
+async def potato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_potato(image)
+        return result
+    except Exception as e:
+        logger.error(f"감자 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/tomato_predict", response_model=ImageClassificationResponse)
+async def tomato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))    
+        result = await classifier.classify_tomato(image)
+        return result
+    except Exception as e:
+        logger.error(f"토마토 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/apple_predict", response_model=ImageClassificationResponse)
+async def apple_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_apple(image)
+        return result
+    except Exception as e:
+        logger.error(f"사과 예측 처리 오류: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/satellite")
@@ -1289,6 +1316,51 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+@app.post("/reset")
+async def reset_conversation():
+    """
+    대화 기록 초기화
+    """
+    app.state.conversation_history.clear()
+    return {"message": "대화 기록이 초기화 되었습니다."}
+
+# 챗봇 엔드포인트
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    농산물 재배법에 답해 드립니다. - 농산물 재배법 상담 챗봇
+    """
+    try:
+        # 기존 대화 기록 가져오기
+        conversation_history = app.state.conversation_history
+
+        # 현재 사용자의 입력 메시지 가져오기
+        current_message = request.contents[-1].parts[0].get("text", "") if request.contents else ""
+
+        # AI 응답 생성
+        response = await process_query(current_message, conversation_history)
+
+        # 응답 변환 및 반환
+        return ChatResponse(
+            candidates=[
+                ChatCandidate(
+                    content=ChatMessage(
+                        role="model",
+                        parts=[
+                            {
+                                "text": response
+                            }
+                        ]
+                    )
+                )
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'오류 발생: {str(e)}')
+
+# 대화 기록 초기화
+app.state.conversation_history = []
 
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
