@@ -21,7 +21,11 @@ import bcrypt
 from fastapi.responses import JSONResponse
 import httpx
 import random
+
 from test import get_price_data
+import requests
+from test import get_price_data, get_satellite_data
+import threading
 import sys
 from backend import CommentCreate, CommentUpdate
 import random
@@ -31,7 +35,7 @@ from routes.Crawler import crawler_endpoint
 from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
 import io
-
+import aiohttp
 
 # Load environment variables
 load_dotenv()
@@ -208,6 +212,50 @@ async def plant_predict(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"식물 분류 처리 오류: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/strawberry_predict", response_model=ImageClassificationResponse)
+async def strawberry_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_strawberry(image)
+        return result
+    except Exception as e:
+        logger.error(f"딸기 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/potato_predict", response_model=ImageClassificationResponse)
+async def potato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_potato(image)
+        return result
+    except Exception as e:
+        logger.error(f"감자 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/tomato_predict", response_model=ImageClassificationResponse)
+async def tomato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))    
+        result = await classifier.classify_tomato(image)
+        return result
+    except Exception as e:
+        logger.error(f"토마토 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/apple_predict", response_model=ImageClassificationResponse)
+async def apple_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_apple(image)
+        return result
+    except Exception as e:
+        logger.error(f"사과 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/satellite")
 async def get_satellite():
@@ -216,9 +264,11 @@ async def get_satellite():
         result = get_satellite_data()
         if result is None:
             raise HTTPException(status_code=500, detail="위성 데이터를 가져오는데 실패했습니다")
+        
+        # 응답 형식 수정
         return {
             "success": True,
-            "data": result,
+            "data": result.get("response", {}).get("body", {}).get("items", {}).get("item", []),
             "message": "위성 이미지 데이터를 성공적으로 가져왔습니다"
         }
     except Exception as e:
@@ -1331,7 +1381,6 @@ app.state.conversation_history = []
 
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
-
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
