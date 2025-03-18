@@ -1388,7 +1388,7 @@ app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 async def get_predictions(crop: str, city: str):
     try:
         from utils.apiUrl import fetchWeatherData
-        from testpython.price import predict_prices
+        from pricepython.price import predict_prices
         
         weather_data = await fetchWeatherData(city)
         predictions = predict_prices(crop, weather_data)
