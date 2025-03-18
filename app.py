@@ -21,10 +21,8 @@ import bcrypt
 from fastapi.responses import JSONResponse
 import httpx
 import random
-
-from test import get_price_data
 import requests
-from test import get_price_data, get_satellite_data
+from weather import get_price_data, get_satellite_data
 import threading
 import sys
 from backend import CommentCreate, CommentUpdate
