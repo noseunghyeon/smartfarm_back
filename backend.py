@@ -16,6 +16,7 @@ from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
 import io
 
+
 app = FastAPI()
 
 # CORS 미들웨어 설정

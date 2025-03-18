@@ -27,9 +27,9 @@ import threading
 import sys
 from backend import CommentCreate, CommentUpdate
 import random
-from routes.youtube import router as youtube_router
+from youtube import youtube_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
-from routes.Crawler import crawler_endpoint
+from Crawler.crawler_endpoint import router as crawler_router
 from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
 import io
@@ -1139,7 +1139,7 @@ async def get_user_info(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
-# YouTube 라우터 포함
+# 유튜브 라우터 포함 (기존 경로: /api/youtube/ 및 /api/youtube/videos)
 app.include_router(youtube_router)
 
 # 내 게시글 조회 엔드포인트
@@ -1208,7 +1208,7 @@ async def chat_endpoint(request: ChatRequest):
 app.state.conversation_history = []
 
 # Crawler 라우터 포함
-app.include_router(crawler_endpoint.router, prefix="/api/crawler")
+app.include_router(crawler_router, prefix="/api/crawler")
 
 @app.get("/predictions/{crop}/{city}")
 async def get_predictions(crop: str, city: str):

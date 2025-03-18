@@ -3,14 +3,19 @@ from googleapiclient.discovery import build
 import os
 import time
 
-router = APIRouter()
+# Set a prefix and tags for clarity
+youtube_router = APIRouter(
+    prefix="/youtube-videos",
+    tags=["YouTube"]
+)
 
 # 서버 사이드 캐싱
 cached_videos = None
 last_cache_time = None
 CACHE_DURATION = 60 * 60  # 1시간(초 단위)
 
-@router.get("/youtube-videos")
+
+@youtube_router.get("/")
 async def get_youtube_videos():
     global cached_videos, last_cache_time
 
@@ -24,7 +29,7 @@ async def get_youtube_videos():
         request = youtube.search().list(
             part='snippet',
             q='작물 재배법',  # 검색어
-            maxResults=15,  # 수정: 페이지 당 영상 수를 15로 요청
+            maxResults=15,   # 페이지 당 15개 영상 요청
             type='video'
         )
         response = request.execute()
