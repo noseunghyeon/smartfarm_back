@@ -215,7 +215,12 @@ class CommentService:
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="댓글을 찾을 수 없습니다")
             
+            # 트랜잭션 커밋 추가
+            self.db.commit()
+            
             return comment_id
         except Exception as e:
+            # 롤백 추가
+            self.db.rollback()
             logger.error(f"댓글 삭제 중 오류 발생: {str(e)}")
             raise 
