@@ -24,7 +24,7 @@ async def get_youtube_videos():
         request = youtube.search().list(
             part='snippet',
             q='작물 재배법',  # 검색어
-            maxResults=3,
+            maxResults=15,  # 수정: 페이지 당 영상 수를 15로 요청
             type='video'
         )
         response = request.execute()
