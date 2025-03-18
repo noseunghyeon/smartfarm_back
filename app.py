@@ -36,6 +36,8 @@ from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
 import io
 import aiohttp
+from services.comment_service import CommentService
+from services.write_service import WriteService
 
 # Load environment variables
 load_dotenv()
@@ -450,56 +452,18 @@ class PostCreate(BaseModel):
 async def create_write_post(post: PostCreate, current_user: str = Depends(get_current_user)):
     try:
         db = SessionLocal()
-        current_time = datetime.now()
-        
-        # auth 테이블에서 user_id 조회
-        user_query = text("SELECT user_id FROM auth WHERE email = :email")
-        user_result = db.execute(user_query, {"email": current_user})
-        user_id = user_result.scalar()
-        
-        if not user_id:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # 게시글 작성 쿼리
-        query = text("""
-            INSERT INTO write (user_id, title, content, date, category, community_type)
-            VALUES (:user_id, :title, :content, :date, :category, :community_type)
-            RETURNING post_id, user_id, title, content, date, category, community_type
-        """)
-        
-        result = db.execute(
-            query,
-            {
-                "user_id": user_id,
-                "title": post.title,
-                "content": post.content,
-                "date": current_time,
-                "category": post.category,
-                "community_type": post.community_type.value
-            }
-        )
-        db.commit()
-        
-        new_post = result.fetchone()
+        write_service = WriteService(db)
+        post_data = await write_service.create_post(post, current_user)
         
         return {
             "success": True,
-            "data": {
-                "post_id": new_post.post_id,
-                "user_id": new_post.user_id,
-                "title": new_post.title,
-                "content": new_post.content,
-                "date": new_post.date,
-                "category": new_post.category,
-                "community_type": new_post.community_type
-            }
+            "data": post_data
         }
-        
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -509,118 +473,122 @@ logger = logging.getLogger(__name__)
 @app.get("/api/comments/user")
 async def get_my_comments(request: Request):
     try:
-        # 1. 토큰 추출
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             raise HTTPException(status_code=401, detail="인증 헤더가 없습니다")
             
-        logger.info(f"[App] 수신된 인증 헤더: {auth_header}")
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_email = payload.get("sub")
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다")
+
+        db = SessionLocal()
+        comment_service = CommentService(db)
+        comments_data = await comment_service.get_user_comments(user_email)
         
-        # 2. backend로 요청 전달
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                'http://localhost:8000/api/comments/user',
-                headers={'Authorization': auth_header}
-            )
-            
-            logger.info(f"[App] Backend 응답 상태 코드: {response.status_code}")
-            
-            if response.status_code != 200:
-                logger.error(f"[App] Backend 응답 에러: {response.text}")
-                return Response(
-                    content=response.content,
-                    status_code=response.status_code,
-                    headers=dict(response.headers)
-                )
-            
-            return response.json()
-            
+        return {
+            "success": True,
+            "data": comments_data,
+            "message": "댓글 조회 성공"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"[App] 에러 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
 
 @app.get("/api/comments/{post_id}")
 async def get_comments(post_id: int):
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BACKEND_URL}/api/comments/{post_id}")
-        return response.json()
+    try:
+        db = SessionLocal()
+        comment_service = CommentService(db)
+        comments_data = await comment_service.get_post_comments(post_id)
+        
+        return {
+            "success": True,
+            "data": comments_data,
+            "message": "댓글 조회 성공"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
 
 @app.post("/api/comments")
 async def create_comment(comment: CommentCreate):
     try:
-        logger.info(f"Received comment data: {comment.dict()}")
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{BACKEND_URL}/api/comments", json=comment.dict())
-            if response.status_code != 200:
-                logger.error(f"Backend error: {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-            return response.json()
+        db = SessionLocal()
+        comment_service = CommentService(db)
+        comment_data = await comment_service.create_comment(comment)
+        
+        return {
+            "success": True,
+            "data": comment_data,
+            "message": "댓글이 성공적으로 생성되었습니다"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Error creating comment: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
 
 @app.put("/api/comments/{comment_id}")
 async def update_comment(
-    comment_id: int, 
+    comment_id: int,
     comment_update: CommentUpdate,
-    current_user: str = Depends(get_current_user),
-    token: str = Depends(oauth2_scheme)
+    current_user: str = Depends(get_current_user)
 ):
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            logging.info(f"댓글 수정 요청: comment_id={comment_id}, user={current_user}")
-            
-            # 프론트엔드 데이터 형식에 맞게 변환
-            request_data = {
-                "commentId": comment_id,
-                "content": comment_update.content,
-                "userEmail": current_user
-            }
-            
-            logging.info(f"요청 데이터: {request_data}")
-            
-            response = await client.put(
-                f"{BACKEND_URL}/api/comments/{comment_id}",
-                json=request_data,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Authorization": f"Bearer {token}"
-                }
-            )
-            
-            logging.info(f"백엔드 응답: {response.status_code} - {response.text}")
-            
-            if response.status_code == 401:
-                logging.error("인증 오류: 토큰이 만료되었거나 유효하지 않습니다")
-                raise HTTPException(
-                    status_code=401,
-                    detail="로그인이 필요하거나 인증이 만료되었습니다. 다시 로그인해주세요."
-                )
-            
-            if response.status_code != 200:
-                logging.error(f"백엔드 서버 오류: {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-            
-            return response.json()
-    except httpx.RequestError as e:
-        logging.error(f"백엔드 서버 연결 오류: {str(e)}")
-        raise HTTPException(status_code=503, detail="백엔드 서버에 연결할 수 없습니다.")
+        db = SessionLocal()
+        comment_service = CommentService(db)
+        updated_comment = await comment_service.update_comment(
+            comment_id, 
+            comment_update.content, 
+            current_user
+        )
+        
+        return {
+            "success": True,
+            "data": updated_comment,
+            "message": "댓글이 성공적으로 수정되었습니다"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logging.error(f"댓글 수정 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
 
 @app.delete("/api/comments/{comment_id}")
 async def delete_comment(
     comment_id: int,
     current_user: str = Depends(get_current_user)
 ):
-    async with httpx.AsyncClient() as client:
-        response = await client.delete(
-            f"{BACKEND_URL}/api/comments/{comment_id}",
-            params={"user_email": current_user}
-        )
-        return response.json()
+    try:
+        db = SessionLocal()
+        comment_service = CommentService(db)
+        await comment_service.delete_comment(comment_id, current_user)
+        
+        return {
+            "success": True,
+            "message": "댓글이 성공적으로 삭제되었습니다",
+            "data": {"comment_id": comment_id}
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'db' in locals():
+            db.close()
 
 @app.get("/api/test-db")
 async def test_db():
@@ -722,106 +690,50 @@ class CommentUpdate(BaseModel):
 # 게시글 수정
 @app.put("/api/posts/{post_id}")
 async def update_post(
-    post_id: int, 
-    post_update: PostUpdate, 
+    post_id: int,
+    post_update: PostUpdate,
     current_user: str = Depends(get_current_user)
 ):
     try:
         db = SessionLocal()
+        write_service = WriteService(db)
+        updated_post = await write_service.update_post(post_id, post_update, current_user)
         
-        # 게시글 작성자 확인
-        check_query = text("""
-            SELECT w.user_id, a.email 
-            FROM write w 
-            JOIN auth a ON w.user_id = a.user_id 
-            WHERE w.post_id = :post_id
-        """)
-        result = db.execute(check_query, {"post_id": post_id})
-        post = result.fetchone()
-        
-        if not post:
-            raise HTTPException(status_code=404, detail="Post not found")
-        if post.email != current_user:
-            raise HTTPException(status_code=403, detail="Not authorized to update this post")
-        
-        # 수정할 필드 구성
-        update_fields = {}
-        if post_update.title is not None:
-            update_fields["title"] = post_update.title
-        if post_update.content is not None:
-            update_fields["content"] = post_update.content
-        if post_update.category is not None:
-            update_fields["category"] = post_update.category
-        if post_update.community_type is not None:
-            update_fields["community_type"] = post_update.community_type.value
-        
-        if update_fields:
-            # 게시글 수정 쿼리
-            update_query = text(f"""
-                UPDATE write 
-                SET {', '.join(f"{k} = :{k}" for k in update_fields.keys())}
-                WHERE post_id = :post_id
-                RETURNING *
-            """)
-            
-            result = db.execute(update_query, {**update_fields, "post_id": post_id})
-            db.commit()
-            updated_post = result.fetchone()
-            
-            return {"success": True, "data": dict(updated_post)}
-            
+        return {
+            "success": True,
+            "data": updated_post,
+            "message": "게시글이 성공적으로 수정되었습니다"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 # 게시글 삭제
 @app.delete("/api/write/{post_id}")
 async def delete_post(
     post_id: int, 
-    current_user: str = Depends(get_current_user),
-    token: str = Depends(oauth2_scheme)
+    current_user: str = Depends(get_current_user)
 ):
     try:
-        logging.info(f"게시글 삭제 요청: post_id={post_id}, user={current_user}")
-        
         db = SessionLocal()
+        write_service = WriteService(db)
+        await write_service.delete_post(post_id, current_user)
         
-        # 게시글 작성자 확인
-        check_query = text("""
-            SELECT w.user_id, a.email 
-            FROM write w 
-            JOIN auth a ON w.user_id = a.user_id 
-            WHERE w.post_id = :post_id
-        """)
-        result = db.execute(check_query, {"post_id": post_id})
-        post = result.fetchone()
-        
-        if not post:
-            logging.error(f"게시글을 찾을 수 없음: post_id={post_id}")
-            raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다")
-            
-        if post.email != current_user:
-            logging.error(f"권한 없음: post_id={post_id}, user={current_user}")
-            raise HTTPException(status_code=403, detail="게시글을 삭제할 권한이 없습니다")
-        
-        # 연관된 댓글 삭제
-        db.execute(text("DELETE FROM comments WHERE post_id = :post_id"), {"post_id": post_id})
-        
-        # 게시글 삭제
-        db.execute(text("DELETE FROM write WHERE post_id = :post_id"), {"post_id": post_id})
-        db.commit()
-        
-        logging.info(f"게시글 삭제 완료: post_id={post_id}")
-        return {"success": True, "message": "게시글이 성공적으로 삭제되었습니다"}
-        
+        return {
+            "success": True,
+            "message": "게시글이 성공적으로 삭제되었습니다"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        db.rollback()
-        logging.error(f"게시글 삭제 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 # 이메일 설정
 email_conf = ConnectionConfig(
@@ -1160,32 +1072,8 @@ async def update_password(
 async def get_community_posts(community_type: str):
     try:
         db = SessionLocal()
-        result = db.execute(
-            text("""
-                SELECT w.*, u.email 
-                FROM write w 
-                JOIN auth u ON w.user_id = u.user_id 
-                WHERE w.community_type = :community_type 
-                ORDER BY w.date DESC
-            """),
-            {"community_type": community_type}
-        )
-        posts = result.fetchall()
-        
-        # 데이터 변환 로직 수정
-        posts_data = []
-        for post in posts:
-            post_dict = {
-                "post_id": post.post_id,
-                "user_id": post.user_id,
-                "title": post.title,
-                "content": post.content,
-                "date": post.date,
-                "category": post.category,
-                "community_type": post.community_type,
-                "email": post.email
-            }
-            posts_data.append(post_dict)
+        write_service = WriteService(db)
+        posts_data = await write_service.get_community_posts(community_type)
         
         return {
             "success": True,
@@ -1204,47 +1092,18 @@ async def get_community_posts(community_type: str):
 async def get_post_detail(post_id: int):
     try:
         db = SessionLocal()
-        result = db.execute(
-            text("""
-                SELECT w.*, u.email 
-                FROM write w 
-                JOIN auth u ON w.user_id = u.user_id 
-                WHERE w.post_id = :post_id
-            """),
-            {"post_id": post_id}
-        )
-        post = result.fetchone()
-        
-        if not post:
-            return {
-                "success": False,
-                "message": "게시글을 찾을 수 없습니다."
-            }
-        
-        # 데이터 변환
-        post_data = {
-            "post_id": post.post_id,
-            "user_id": post.user_id,
-            "title": post.title,
-            "content": post.content,
-            "date": post.date,
-            "category": post.category,
-            "community_type": post.community_type,
-            "email": post.email
-        }
+        write_service = WriteService(db)
+        post_data = await write_service.get_post(post_id)
         
         return {
             "success": True,
             "data": post_data
         }
     except Exception as e:
-        print(f"[ERROR] 게시글 상세 조회 중 오류 발생: {str(e)}")
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 @app.get("/auth/user")
 async def get_user_info(current_user: str = Depends(get_current_user)):
@@ -1290,39 +1149,8 @@ app.include_router(youtube_router)
 async def get_my_posts(current_user: str = Depends(get_current_user)):
     try:
         db = SessionLocal()
-        
-        # 사용자 ID 조회
-        user_query = text("SELECT user_id FROM auth WHERE email = :email")
-        user_result = db.execute(user_query, {"email": current_user})
-        user_id = user_result.scalar()
-        
-        if not user_id:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # 사용자의 게시글 조회
-        posts_query = text("""
-            SELECT w.*, a.email 
-            FROM write w 
-            JOIN auth a ON w.user_id = a.user_id 
-            WHERE w.user_id = :user_id 
-            ORDER BY w.date DESC
-        """)
-        
-        result = db.execute(posts_query, {"user_id": user_id})
-        posts = result.fetchall()
-        
-        posts_data = []
-        for post in posts:
-            post_dict = {
-                "post_id": post.post_id,
-                "title": post.title,
-                "content": post.content,
-                "date": post.date,
-                "category": post.category,
-                "community_type": post.community_type,
-                "email": post.email
-            }
-            posts_data.append(post_dict)
+        write_service = WriteService(db)
+        posts_data = await write_service.get_user_posts(current_user)
         
         return {
             "success": True,
