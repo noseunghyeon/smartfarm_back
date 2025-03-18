@@ -12,7 +12,7 @@ class CommentService:
     async def get_user_comments(self, user_email):
         try:
             query = text("""
-                SELECT c.*, w.title as post_title 
+                SELECT c.*, w.title as post_title, w.community_type
                 FROM comments c
                 JOIN write w ON c.post_id = w.post_id
                 JOIN auth a ON c.user_id = a.user_id
@@ -28,7 +28,8 @@ class CommentService:
                 "post_id": comment.post_id,
                 "content": comment.content,
                 "created_at": comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                "post_title": comment.post_title
+                "post_title": comment.post_title,
+                "community_type": comment.community_type
             } for comment in comments]
         except Exception as e:
             logger.error(f"사용자 댓글 조회 중 오류 발생: {str(e)}")
@@ -79,18 +80,24 @@ class CommentService:
             if not user_id:
                 raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
-            # 게시글 존재 여부 확인
-            post_query = text("SELECT post_id FROM write WHERE post_id = :post_id")
-            if not self.db.execute(post_query, {"post_id": comment_data.post_id}).scalar():
+            # 게시글 존재 여부와 community_type 확인
+            post_query = text("""
+                SELECT post_id, community_type 
+                FROM write 
+                WHERE post_id = :post_id
+            """)
+            post_result = self.db.execute(post_query, {"post_id": comment_data.post_id}).fetchone()
+            
+            if not post_result:
                 raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다")
 
             # 댓글 생성
             insert_query = text("""
                 INSERT INTO comments 
-                (post_id, user_id, content, created_at) 
+                (post_id, user_id, content, created_at, community_type) 
                 VALUES 
-                (:post_id, :user_id, :content, :created_at)
-                RETURNING comment_id, post_id, user_id, content, created_at
+                (:post_id, :user_id, :content, :created_at, :community_type)
+                RETURNING comment_id, post_id, user_id, content, created_at, community_type
             """)
             
             result = self.db.execute(
@@ -99,9 +106,13 @@ class CommentService:
                     "post_id": comment_data.post_id,
                     "user_id": user_id,
                     "content": comment_data.content,
-                    "created_at": datetime.now()
+                    "created_at": datetime.now(),
+                    "community_type": post_result.community_type  # 게시글의 community_type 사용
                 }
             )
+            
+            # 트랜잭션 커밋 추가
+            self.db.commit()
             
             new_comment = result.fetchone()
             
@@ -111,9 +122,11 @@ class CommentService:
                 "user_id": new_comment.user_id,
                 "content": new_comment.content,
                 "created_at": new_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                "community_type": new_comment.community_type,
                 "email": comment_data.user_email
             }
         except Exception as e:
+            self.db.rollback()  # 롤백 추가
             logger.error(f"댓글 생성 중 오류 발생: {str(e)}")
             raise
 
