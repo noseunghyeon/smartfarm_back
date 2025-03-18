@@ -21,10 +21,8 @@ import bcrypt
 from fastapi.responses import JSONResponse
 import httpx
 import random
-
-from test import get_price_data
 import requests
-from test import get_price_data, get_satellite_data
+from weather import get_price_data, get_satellite_data
 import threading
 import sys
 from backend import CommentCreate, CommentUpdate
@@ -1216,33 +1214,10 @@ app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 async def get_predictions(crop: str, city: str):
     try:
         from utils.apiUrl import fetchWeatherData
-        
-        # 작물에 따른 예측 모듈 선택
-        if crop == "cabbage":
-            from testpython.cabbage2 import predict_prices
-        elif crop == "apple":
-            from testpython.appleprice import predict_prices
-        elif crop == "onion":
-            from testpython.onion2 import predict_prices
-        elif crop == "potato":
-            from testpython.potato2 import predict_prices
-        elif crop == "cucumber":
-            from testpython.cucumber2 import predict_prices
-        elif crop == "tomato":
-            from testpython.tomato2 import predict_prices
-        elif crop == "spinach":
-            from testpython.spinach2 import predict_prices
-        elif crop == "strawberry":
-            from testpython.strawberry import predict_prices
-        elif crop == "broccoli":
-            from testpython.broccoli import predict_prices
-        elif crop == "carrot":
-            from testpython.carrot import predict_prices
-        else:
-            raise ValueError("지원하지 않는 작물입니다")
+        from pricepython.price import predict_prices
         
         weather_data = await fetchWeatherData(city)
-        predictions = predict_prices(weather_data)
+        predictions = predict_prices(crop, weather_data)
         
         if 'error' in predictions:
             raise Exception(predictions['error'])
