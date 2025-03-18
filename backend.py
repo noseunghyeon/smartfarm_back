@@ -12,18 +12,9 @@ import logging
 from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
-
-# kiwi_model 관련 import 추가
-import torch
-import onnxruntime
-import numpy as np
-from torchvision import transforms
-import io
+from image_classifier import classifier, ImageClassificationResponse
 from PIL import Image
-import requests
-
-# import 섹션에 추가
-import tensorflow as tf
+import io
 
 app = FastAPI()
 
@@ -36,113 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 대화 기록 초기화
-app.state.conversation_history = []
-
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# kiwi_model 관련 코드 추가
-# 클래스 레이블 정의
-CLASS_LABELS = {
-    0: "잎_점무늬병",
-    1: "잎_정상",
-    2: "잎_총채벌레"
-}
-
-# 키위 모델 세션 생성 함수
-def get_kiwi_model_session():
-    url = "https://huggingface.co/jjiw/densenet161-onnx/resolve/main/model.onnx"
-    response = requests.get(url)
-    model_bytes = io.BytesIO(response.content)
-    session = onnxruntime.InferenceSession(model_bytes.getvalue())
-    return session
-
-# 참외 모델 세션 생성 함수
-def get_chamoe_model_session():
-    url = "https://huggingface.co/jjiw/disease-classifier-onnx/resolve/main/model.onnx"  # 참외 모델 URL 수정
-    response = requests.get(url)
-    model_bytes = io.BytesIO(response.content)
-    session = onnxruntime.InferenceSession(model_bytes.getvalue())
-    return session
-
-# 식물 분류 모델 세션 생성 함수 수정
-def get_plant_model_session():
-    try:
-        url = "https://huggingface.co/jjiw/plant-classifier-h5/resolve/main/model.h5"
-        response = requests.get(url)
-        model_bytes = io.BytesIO(response.content)
-        
-        # 임시 파일로 저장
-        with open('temp_model.h5', 'wb') as f:
-            f.write(model_bytes.getvalue())
-        
-        # Keras 모델 로드
-        model = tf.keras.models.load_model('temp_model.h5')
-        
-        # 임시 파일 삭제
-        os.remove('temp_model.h5')
-        
-        logger.info("Plant classification model loaded successfully")
-        return model
-    except Exception as e:
-        logger.error(f"Error loading plant model: {str(e)}")
-        raise
-
-# 모델 세션 생성
-try:
-    kiwi_session = get_kiwi_model_session()
-    chamoe_session = get_chamoe_model_session()
-    plant_session = get_plant_model_session()  # 식물 분류 모델 추가
-    logger.info("All models loaded successfully")
-except Exception as e:
-    logger.error(f"Error loading models: {str(e)}")
-    kiwi_session = None
-    chamoe_session = None
-    plant_session = None
-
-# 이미지 전처리 함수
-def preprocess_image(image):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    img_tensor = transform(image)
-    return img_tensor.numpy()
-
-# 예측 함수
-def predict(image):
-    input_data = preprocess_image(image)
-    input_name = kiwi_session.get_inputs()[0].name
-    outputs = kiwi_session.run(None, {input_name: input_data.reshape(1, 3, 224, 224)})
-    probabilities = torch.nn.functional.softmax(torch.tensor(outputs[0][0]), dim=0)
-    predicted_class_idx = probabilities.argmax().item()
-    predicted_class_label = CLASS_LABELS.get(predicted_class_idx, f"알 수 없는 클래스 {predicted_class_idx}")
-    confidence = probabilities[predicted_class_idx].item()
-    
-    return {
-        "class": predicted_class_label,
-        "confidence": float(confidence),
-        "class_index": predicted_class_idx
-    }
-
-# kiwi_model 엔드포인트 추가
-@app.post("/kiwi_predict")
-async def kiwi_predict(file: UploadFile = File(...)):
-    try:
-        logger.info(f"Received file: {file.filename}")
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        result = predict(image)
-        logger.info(f"Prediction result: {result}")
-        return result
-    except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+@app.post("/reset")
+async def reset_conversation():
+    """
+    대화 기록 초기화
+    """
+    app.state.conversation_history.clear()
+    return {"message": "대화 기록이 초기화 되었습니다."}
 
 # 챗봇 엔드포인트
 @app.post("/chat", response_model=ChatResponse)
@@ -185,6 +76,14 @@ async def reset_conversation():
     """
     app.state.conversation_history.clear()
     return {"message": "대화 기록이 초기화 되었습니다."}
+
+
+# 대화 기록 초기화
+app.state.conversation_history = []
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 데이터베이스 설정
 load_dotenv()
@@ -271,7 +170,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 @app.get("/")
 def read_root():
-    return {"message": "농산물 가격 정보 API"}
+    return {"message": "농산물 가격 정보 API from backend"}
 
 @app.get("/api/price")
 async def get_price():
@@ -585,208 +484,6 @@ async def delete_comment(comment_id: int, user_email: str):
     finally:
         db.close()
 
-# 참외 모델을 위한 클래스 레이블 수정
-CHAMOE_CLASS_LABELS = {
-    0: "downy_mildew_chamoe",  # 노균병
-    1: "healthy_chamoe",       # 정상
-    2: "powdery_mildew_chamoe" # 흰가루병
-}
-
-# 참외 이미지 전처리 함수 수정
-def preprocess_chamoe_image(image):
-    # 이미지 크기 조정
-    image = image.resize((224, 224))
-    
-    # PIL Image를 numpy array로 변환
-    img_array = np.array(image)
-    
-    # 정규화 (0-1 범위로)
-    img_array = img_array.astype('float32') / 255.0
-    
-    # 차원 순서 변경 없이 배치 차원 추가
-    img_array = np.expand_dims(img_array, axis=0)
-    
-    return img_array
-
-# 참외 예측 함수 수정
-def predict_chamoe(image):
-    try:
-        # 이미지 전처리
-        input_data = preprocess_chamoe_image(image)
-        
-        # 입력 이름 가져오기
-        input_name = chamoe_session.get_inputs()[0].name
-        
-        # ONNX 모델로 예측 수행
-        outputs = chamoe_session.run(None, {input_name: input_data})
-        probabilities = torch.nn.functional.softmax(torch.tensor(outputs[0][0]), dim=0)
-        predicted_class_idx = probabilities.argmax().item()
-        
-        # 한글 클래스 레이블 매핑
-        korean_labels = {
-            "downy_mildew_chamoe": "노균병",
-            "healthy_chamoe": "정상",
-            "powdery_mildew_chamoe": "흰가루병"
-        }
-        
-        predicted_class_label = CHAMOE_CLASS_LABELS.get(predicted_class_idx)
-        korean_label = korean_labels.get(predicted_class_label, "알 수 없는 클래스")
-        confidence = probabilities[predicted_class_idx].item()
-        
-        # 모든 클래스의 확률 계산 (한글 레이블 사용)
-        all_probabilities = {
-            korean_labels[CHAMOE_CLASS_LABELS[i]]: float(probabilities[i])
-            for i in range(len(CHAMOE_CLASS_LABELS))
-        }
-        
-        return {
-            "predicted_class": korean_label,
-            "confidence": float(confidence),
-            "class_probabilities": all_probabilities
-        }
-    except Exception as e:
-        logger.error(f"참외 예측 중 오류 발생: {str(e)}")
-        raise
-
-# 참외 예측 엔드포인트 추가
-@app.post("/chamoe_predict")
-async def chamoe_predict(file: UploadFile = File(...)):
-    try:
-        if chamoe_session is None:
-            raise HTTPException(
-                status_code=503, 
-                detail="Chamoe model is not available"
-            )
-            
-        logger.info(f"Received file for chamoe prediction: {file.filename}")
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        result = predict_chamoe(image)
-        logger.info(f"Chamoe prediction result: {result}")
-        return {
-            "success": True,
-            "data": result,
-            "message": "이미지 분석이 완료되었습니다"
-        }
-    except Exception as e:
-        logger.error(f"Error processing chamoe image: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-# 식물 분류 레이블
-PLANT_CLASS_LABELS = {
-    0: "non_plant",
-    1: "plant"
-}
-
-# 식물 이미지 전처리 함수 수정
-def preprocess_plant_image(image):
-    try:
-        # 이미지 크기 조정
-        image = image.resize((224, 224))
-        
-        # PIL Image를 numpy array로 변환
-        img_array = np.array(image)
-        
-        # RGB 이미지가 아닌 경우 변환
-        if len(img_array.shape) == 2:  # 흑백 이미지인 경우
-            img_array = np.stack([img_array] * 3, axis=-1)
-        elif img_array.shape[-1] == 4:  # RGBA 이미지인 경우
-            img_array = img_array[:, :, :3]
-            
-        # 이미지가 (224, 224, 3) 형태인지 확인
-        assert img_array.shape == (224, 224, 3), f"Unexpected shape: {img_array.shape}"
-        
-        # 정규화 (0-1 범위로)
-        img_array = img_array.astype('float32') / 255.0
-        
-        # 배치 차원 추가 (1, 224, 224, 3)
-        img_array = np.expand_dims(img_array, axis=0)
-        
-        logger.info(f"Preprocessed image shape: {img_array.shape}")
-        return img_array
-        
-    except Exception as e:
-        logger.error(f"Image preprocessing error: {str(e)}")
-        raise
-
-# 식물 분류 예측 함수 수정
-def predict_plant(image):
-    try:
-        # 이미지 전처리
-        input_data = preprocess_plant_image(image)
-        
-        # Keras 모델로 예측 수행
-        predictions = plant_session.predict(input_data)
-        
-        # 로깅
-        logger.info(f"Raw predictions shape: {predictions.shape}")
-        logger.info(f"Raw predictions values: {predictions}")
-        
-        # 예측값이 0.5보다 크면 비식물, 작으면 식물로 판단
-        confidence = float(predictions[0][0])
-        predicted_class_idx = 1 if confidence > 0.5 else 0
-        
-        # 로깅
-        logger.info(f"Confidence: {confidence}")
-        logger.info(f"Predicted class: {predicted_class_idx}")
-        
-        # 클래스 레이블 매핑
-        korean_labels = {
-            "plant": "식물",
-            "non_plant": "비식물"
-        }
-        
-        predicted_class_label = PLANT_CLASS_LABELS.get(predicted_class_idx)
-        korean_label = korean_labels.get(predicted_class_label, "알 수 없는 클래스")
-        
-        # 확률 계산 (비식물일 확률이 confidence, 식물일 확률이 1-confidence)
-        all_probabilities = {
-            "비식물": float(confidence),
-            "식물": float(1 - confidence)
-        }
-        
-        # 실제 예측된 클래스의 confidence 값 설정
-        result_confidence = confidence if predicted_class_idx == 1 else 1 - confidence
-        
-        return {
-            "predicted_class": korean_label,
-            "confidence": result_confidence,
-            "class_probabilities": all_probabilities
-        }
-    except Exception as e:
-        logger.error(f"Plant classification error: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        logger.error(f"Error details: {str(e.__class__.__name__)}")
-        raise
-
-# 식물 분류 엔드포인트 추가
-@app.post("/plant_predict")
-async def plant_predict(file: UploadFile = File(...)):
-    try:
-        if plant_session is None:
-            raise HTTPException(
-                status_code=503, 
-                detail="Plant classification model is not available"
-            )
-            
-        logger.info(f"Received file for plant classification: {file.filename}")
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        result = predict_plant(image)
-        logger.info(f"Plant classification result: {result}")
-        return {
-            "success": True,
-            "data": result,
-            "message": "이미지 분석이 완료되었습니다"
-        }
-    except Exception as e:
-        logger.error(f"Error processing plant classification: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-
 # 내 게시글 조회 엔드포인트 수정
 @app.get("/api/write/user")
 async def get_my_posts(current_user: str = Depends(get_current_user)):
@@ -838,6 +535,85 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
+# 이미지 분류 엔드포인트들
+@app.post("/kiwi_predict", response_model=ImageClassificationResponse)
+async def kiwi_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_kiwi(image)
+        return result
+    except Exception as e:
+        logger.error(f"키위 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/chamoe_predict", response_model=ImageClassificationResponse)
+async def chamoe_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_chamoe(image)
+        return result
+    except Exception as e:
+        logger.error(f"참외 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/strawberry_predict", response_model=ImageClassificationResponse)
+async def strawberry_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_strawberry(image)
+        return result
+    except Exception as e:
+        logger.error(f"딸기 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/potato_predict", response_model=ImageClassificationResponse)
+async def potato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_potato(image)
+        return result
+    except Exception as e:
+        logger.error(f"감자 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/tomato_predict", response_model=ImageClassificationResponse)
+async def tomato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))    
+        result = await classifier.classify_tomato(image)
+        return result
+    except Exception as e:
+        logger.error(f"토마토 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/apple_predict", response_model=ImageClassificationResponse)
+async def apple_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_apple(image)
+        return result
+    except Exception as e:
+        logger.error(f"사과 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/plant_predict", response_model=ImageClassificationResponse)
+async def plant_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_plant(image)
+        return result
+    except Exception as e:
+        logger.error(f"식물 분류 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request,Response
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -19,10 +19,12 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 import secrets
 import bcrypt
 from fastapi.responses import JSONResponse
-from jose import JWTError
-from fastapi.responses import Response
 import httpx
+import random
+
 from test import get_price_data
+import requests
+from test import get_price_data, get_satellite_data
 import threading
 import sys
 from backend import CommentCreate, CommentUpdate
@@ -30,7 +32,10 @@ import random
 from routes.youtube import router as youtube_router
 from chatbot import process_query, ChatMessage, ChatRequest, ChatCandidate, ChatResponse
 from routes.Crawler import crawler_endpoint
-
+from image_classifier import classifier, ImageClassificationResponse
+from PIL import Image
+import io
+import aiohttp
 
 # Load environment variables
 load_dotenv()
@@ -47,22 +52,23 @@ KOREAN_CITIES = {
     "제주": "Jeju"
 }
 
+class Comment(BaseModel):
+    comment_id: int
+    post_id: int
+    user_id: str
+    content: str
+    created_at: datetime
+
+class CommentCreate(BaseModel):
+    post_id: int
+    content: str
+    user_email: str
+
+class CommentUpdate(BaseModel):
+    content: str
+
 # Backend API URL
-BACKEND_URL = "http://localhost:8080"
-
-def run_backend():
-    """Run the backend server"""
-    try:
-        uvicorn.run("backend:app", host="0.0.0.0", port=8080, reload=False)
-    except Exception as e:
-        print(f"Backend server error: {e}")
-        sys.exit(1)
-
-# Run backend server in a separate thread
-backend_thread = threading.Thread(target=run_backend, daemon=True)
-backend_thread.start()
-
-from test import get_price_data, get_satellite_data
+BACKEND_URL = "http://localhost:8000"
 
 app = FastAPI()
 
@@ -78,9 +84,6 @@ app.add_middleware(
 )
 
 # 데이터베이스 설정
-load_dotenv()
-
-# PostgreSQL 연결 문자열 구성
 DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
@@ -176,88 +179,85 @@ async def get_weather(city: str):
             "message": "날씨 데이터를 가져오는데 실패했습니다"
         }
 
-@app.post("/predict")
-async def predict_disease(file: UploadFile = File(...), crop_type: str = "kiwi"):
+# 이미지 분류 엔드포인트들
+@app.post("/kiwi_predict", response_model=ImageClassificationResponse)
+async def kiwi_predict(file: UploadFile = File(...)):
     try:
-        async with httpx.AsyncClient() as client:
-            form_data = {"file": await file.read()}
-            files = {"file": (file.filename, form_data["file"], file.content_type)}
-            
-            # 작물 유형에 따라 다른 엔드포인트 호출
-            if crop_type == "kiwi":
-                endpoint = "/kiwi_predict"
-            elif crop_type == "chamoe":
-                endpoint = "/chamoe_predict"
-            elif crop_type == "plant":  # 식물 분류 엔드포인트 추가
-                endpoint = "/plant_predict"
-            else:
-                raise HTTPException(status_code=400, detail="지원하지 않는 작물 유형입니다")
-            
-            response = await client.post(
-                f"http://localhost:8080{endpoint}",
-                files=files
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result
-            else:
-                return {
-                    "success": False,
-                    "error": "이미지 분석 실패",
-                    "message": "이미지 분석 중 오류가 발생했습니다"
-                }
-                
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_kiwi(image)
+        return result
     except Exception as e:
-        print(f"Prediction Error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "이미지 분석 중 오류가 발생했습니다"
-        }
+        logger.error(f"키위 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/predictions/{crop}/{city}")
-async def get_predictions(crop: str, city: str):
+@app.post("/chamoe_predict", response_model=ImageClassificationResponse)
+async def chamoe_predict(file: UploadFile = File(...)):
     try:
-        from utils.apiUrl import fetchWeatherData
-        
-        # 작물에 따른 예측 모듈 선택
-        if crop == "cabbage":
-            from testpython.cabbage2 import predict_prices
-        elif crop == "apple":
-            from testpython.appleprice import predict_prices
-        elif crop == "broccoli":
-            from testpython.broccoli import predict_prices
-        elif crop == "carrot":
-            from testpython.carrot import predict_prices
-        elif crop == "onion":
-            from testpython.onion2 import predict_prices
-        elif crop == "potato":
-            from testpython.potato2 import predict_prices
-        elif crop == "cucumber":
-            from testpython.cucumber2 import predict_prices
-        elif crop == "tomato":
-            from testpython.tomato2 import predict_prices
-        elif crop == "spinach":
-            from testpython.spinach2 import predict_prices
-        elif crop == "strawberry":
-            from testpython.strawberry import predict_prices
-        else:
-            raise ValueError("지원하지 않는 작물입니다")
-        
-        weather_data = await fetchWeatherData(city)
-        predictions = predict_prices(weather_data)
-        
-        if 'error' in predictions:
-            raise Exception(predictions['error'])
-            
-        return {
-            "predictions": predictions,
-            "weather_data": weather_data['raw']
-        }
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_chamoe(image)
+        return result
     except Exception as e:
-        print(f"Error in predictions: {str(e)}")
-        return {"error": str(e)}
+        logger.error(f"참외 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/plant_predict", response_model=ImageClassificationResponse)
+async def plant_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_plant(image)
+        return result
+    except Exception as e:
+        logger.error(f"식물 분류 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/strawberry_predict", response_model=ImageClassificationResponse)
+async def strawberry_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_strawberry(image)
+        return result
+    except Exception as e:
+        logger.error(f"딸기 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/potato_predict", response_model=ImageClassificationResponse)
+async def potato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_potato(image)
+        return result
+    except Exception as e:
+        logger.error(f"감자 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/tomato_predict", response_model=ImageClassificationResponse)
+async def tomato_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))    
+        result = await classifier.classify_tomato(image)
+        return result
+    except Exception as e:
+        logger.error(f"토마토 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+   
+@app.post("/apple_predict", response_model=ImageClassificationResponse)
+async def apple_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_apple(image)
+        return result
+    except Exception as e:
+        logger.error(f"사과 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 
 @app.get("/api/satellite")
 async def get_satellite():
@@ -266,9 +266,11 @@ async def get_satellite():
         result = get_satellite_data()
         if result is None:
             raise HTTPException(status_code=500, detail="위성 데이터를 가져오는데 실패했습니다")
+        
+        # 응답 형식 수정
         return {
             "success": True,
-            "data": result,
+            "data": result.get("response", {}).get("body", {}).get("items", {}).get("item", []),
             "message": "위성 이미지 데이터를 성공적으로 가져왔습니다"
         }
     except Exception as e:
@@ -288,7 +290,7 @@ async def get_price():
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
+
 @app.post("/auth/register")
 async def register(user: UserCreate):
     try:
@@ -517,7 +519,7 @@ async def get_my_comments(request: Request):
         # 2. backend로 요청 전달
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                'http://localhost:8080/api/comments/user',
+                'http://localhost:8000/api/comments/user',
                 headers={'Authorization': auth_header}
             )
             
@@ -1334,9 +1336,96 @@ async def get_my_posts(current_user: str = Depends(get_current_user)):
     finally:
         db.close()
 
+@app.post("/reset")
+async def reset_conversation():
+    """
+    대화 기록 초기화
+    """
+    app.state.conversation_history.clear()
+    return {"message": "대화 기록이 초기화 되었습니다."}
+
+# 챗봇 엔드포인트
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    농산물 재배법에 답해 드립니다. - 농산물 재배법 상담 챗봇
+    """
+    try:
+        # 기존 대화 기록 가져오기
+        conversation_history = app.state.conversation_history
+
+        # 현재 사용자의 입력 메시지 가져오기
+        current_message = request.contents[-1].parts[0].get("text", "") if request.contents else ""
+
+        # AI 응답 생성
+        response = await process_query(current_message, conversation_history)
+
+        # 응답 변환 및 반환
+        return ChatResponse(
+            candidates=[
+                ChatCandidate(
+                    content=ChatMessage(
+                        role="model",
+                        parts=[
+                            {
+                                "text": response
+                            }
+                        ]
+                    )
+                )
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'오류 발생: {str(e)}')
+
+# 대화 기록 초기화
+app.state.conversation_history = []
+
 # Crawler 라우터 포함
 app.include_router(crawler_endpoint.router, prefix="/api/crawler")
 
+@app.get("/predictions/{crop}/{city}")
+async def get_predictions(crop: str, city: str):
+    try:
+        from utils.apiUrl import fetchWeatherData
+        
+        # 작물에 따른 예측 모듈 선택
+        if crop == "cabbage":
+            from testpython.cabbage2 import predict_prices
+        elif crop == "apple":
+            from testpython.appleprice import predict_prices
+        elif crop == "onion":
+            from testpython.onion2 import predict_prices
+        elif crop == "potato":
+            from testpython.potato2 import predict_prices
+        elif crop == "cucumber":
+            from testpython.cucumber2 import predict_prices
+        elif crop == "tomato":
+            from testpython.tomato2 import predict_prices
+        elif crop == "spinach":
+            from testpython.spinach2 import predict_prices
+        elif crop == "strawberry":
+            from testpython.strawberry import predict_prices
+        elif crop == "broccoli":
+            from testpython.broccoli import predict_prices
+        elif crop == "carrot":
+            from testpython.carrot import predict_prices
+        else:
+            raise ValueError("지원하지 않는 작물입니다")
+        
+        weather_data = await fetchWeatherData(city)
+        predictions = predict_prices(weather_data)
+        
+        if 'error' in predictions:
+            raise Exception(predictions['error'])
+            
+        return {
+            "predictions": predictions,
+            "weather_data": weather_data['raw']
+        }
+    except Exception as e:
+        print(f"Error in predictions: {str(e)}")
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")

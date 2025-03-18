@@ -22,7 +22,7 @@ async def test_create_comment():
         try:
             # 댓글 작성 테스트
             response = await client.post(
-                "http://localhost:8080/api/comments",
+                "http://localhost:8000/api/comments",
                 json=comment_data,
                 headers=headers
             )
@@ -45,7 +45,7 @@ async def test_get_comments():
         
         try:
             # 댓글 조회 테스트
-            response = await client.get(f"http://localhost:8080/api/comments/{post_id}")
+            response = await client.get(f"http://localhost:8000/api/comments/{post_id}")
             
             print("응답 상태 코드:", response.status_code)
             print("응답 내용:", response.json())

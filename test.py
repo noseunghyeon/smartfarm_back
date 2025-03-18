@@ -36,8 +36,12 @@ def get_satellite_data():
         # JSON 응답 파싱
         data = response.json()
         
-        # 데이터 반환
-        return data
+        # 데이터 구조 확인 및 반환
+        if "response" in data and "body" in data["response"] and "items" in data["response"]["body"]:
+            return data
+        else:
+            print("위성 데이터 구조가 올바르지 않습니다:", data)
+            return None
         
     except requests.exceptions.RequestException as e:
         print(f"위성영상 API 호출 중 오류 발생: {e}")
