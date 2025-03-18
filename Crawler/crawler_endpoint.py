@@ -4,7 +4,7 @@ from . import crawler  # 상대 import 사용
 router = APIRouter()
 
 @router.get("/news-links", tags=["Crawler"])
-async def get_news_links(
+async def get_news_links(               
     list_id: int = Query(19, alias="list"),
     pages: int = Query(1)  # 추가: 스크랩할 페이지 수 (기본값 1)
 ):
