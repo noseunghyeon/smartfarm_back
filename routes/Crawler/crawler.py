@@ -14,27 +14,6 @@ html = """
 """
 
 soup = BeautifulSoup(html, 'html.parser')
-# print(soup)
-# print(soup.stripped_strings) # 스크래핑된 문자열에서 태그를 걷어낸 문자열 저장 정보 확인
-
-for stripped_text in soup.stripped_strings:
-  print(stripped_text)
-
-  # find() 함수를 사용하여 p 태그의 첫 번째 요소 검색
-first_p = soup.find('p')
-print(first_p)
-
-# find_all() 함수를 사용하여 p 태그 전체를 검색
-all_ps = soup.find_all('p')
-print(all_ps)
-
-# class 속성이 scraping인 첫 번째 요소 검색
-first_scraping = soup.find(attrs={'class': 'scraping'})
-print(first_scraping)
-
-# id 속성이 body인 요소 검색
-body = soup.find(attrs={'id': 'body'})
-print(body)
 
 
 stock_url = 'https://www.nongmin.com/economyMain'
