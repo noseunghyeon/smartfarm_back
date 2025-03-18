@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 from pydantic import BaseModel
-from test import get_price_data
+from weather import get_price_data
 import logging
 from fastapi.security import OAuth2PasswordBearer, HTTPAuthorizationCredentials, HTTPBearer
 import jwt
