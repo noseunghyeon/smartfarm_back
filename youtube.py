@@ -15,7 +15,7 @@ last_cache_time = None
 CACHE_DURATION = 60 * 60  # 1시간(초 단위)
 
 
-@youtube_router.get("/")
+@youtube_router.get("")
 async def get_youtube_videos():
     global cached_videos, last_cache_time
 

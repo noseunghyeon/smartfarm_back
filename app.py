@@ -71,6 +71,7 @@ class CommentUpdate(BaseModel):
 BACKEND_URL = "http://localhost:8000"
 
 app = FastAPI()
+app.router.redirect_slashes = False  # 트레일링 슬래시 자동 리다이렉션 비활성화
 
 # CORS 설정
 app.add_middleware(
