@@ -2,6 +2,23 @@
 
 농산물 가격 정보 및 예측, 커뮤니티 기능을 제공하는 백엔드 API 서버입니다.
 
+## 프로젝트 구조
+
+```
+back/
+├── app.py              # 메인 애플리케이션
+├── backend.py          # 백엔드 로직
+├── chatbot.py          # 챗봇 기능
+├── weather.py          # 날씨 관련 기능
+├── image_classifier.py # 이미지 분석
+├── routes/            # API 라우트
+├── utils/             # 유틸리티 함수
+├── services/          # 서비스 로직
+├── pricedata/         # 가격 데이터
+├── pricepython/       # 가격 예측 모델
+└── db.sql             # 데이터베이스 스키마
+```
+
 ## 기술 스택
 
 - Python
@@ -9,6 +26,31 @@
 - PostgreSQL
 - JWT 인증
 - ONNX Runtime (이미지 분석)
+
+## 주요 기능
+
+### 1. 농산물 정보
+
+- 도시별 날씨 정보 조회 (`weather.py`)
+- 참외 질병 예측 (`image_classifier.py`)
+- 작물 가격 예측 (`pricepython/`)
+- 실시간 농산물 가격 정보 (`pricedata/`)
+- 시장 정보 조회
+
+### 2. 사용자 관리
+
+- 회원가입
+- 로그인/로그아웃 (JWT 인증)
+- 사용자 프로필 관리
+
+### 3. 커뮤니티
+
+- 게시글 작성/조회/수정/삭제
+- 댓글 작성/조회
+- 카테고리별 게시판
+  - 텃밭 정보
+  - 농산물 마켓
+  - 자유게시판
 
 ## 시작하기
 
@@ -18,7 +60,7 @@
 - PostgreSQL
 - Node.js (일부 기능에 필요)
 
-### 환경 설정
+### 설치 및 실행
 
 1. 가상환경 생성 및 활성화
 
@@ -52,22 +94,7 @@ JWT_SECRET=your_jwt_secret
 psql -U your_db_user -d your_db_name -f db.sql
 ```
 
-## 모델 파일 설정
-
-### 모델 파일 다운로드
-
-프로젝트에 필요한 모델 파일들은 다음 위치에서 다운로드 받을 수 있습니다:
-
-- plant_classifier.onnx
-- disease_classifier.onnx
-
-다운로드 받은 파일들은 `images_model/chamoe_model/models/` 디렉토리에 위치시켜주세요.
-
-※ 모델 파일들은 용량 문제로 인해 Git에서 제외되어 있습니다.
-
-모델 파일 다운로드 링크: [https://drive.google.com/drive/folders/19iXxf-TJ3dozoNjvH8kd5uuv6KnoWvFl]
-
-## 서버 실행
+5. 서버 실행
 
 ```bash
 uvicorn app:app --reload
@@ -77,54 +104,41 @@ uvicorn app:app --reload
 
 ## API 문서
 
-API 문서는 Swagger UI를 통해 확인할 수 있습니다:
+API 문서는 서버 실행 후 다음 URL에서 확인할 수 있습니다:
 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-## 주요 기능
+## API 엔드포인트
 
-### 1. 농산물 정보
+### 농산물 정보
 
-- 도시별 날씨 정보 조회
-- 참외 질병 예측
-- 작물 가격 예측
-- 위성 이미지 정보
-- 농산물 가격 정보
-- 시장 정보
+- GET `/api/weather` - 도시별 날씨 정보
+- POST `/api/disease/predict` - 참외 질병 예측
+- GET `/api/price/predict` - 작물 가격 예측
+- GET `/api/price/current` - 실시간 가격 정보
 
-### 2. 사용자 관리
+### 사용자 관리
 
-- 회원가입
-- 로그인 (JWT 인증)
+- POST `/api/auth/register` - 회원가입
+- POST `/api/auth/login` - 로그인
+- GET `/api/auth/profile` - 프로필 조회
+- PUT `/api/auth/profile` - 프로필 수정
 
-### 3. 커뮤니티
+### 커뮤니티
 
-- 게시글 작성
-- 댓글 조회/작성
-- 카테고리별 게시판 (텃밭, 마켓, 자유게시판)
-
-## 프로젝트 구조
-
-```
-back/
-├── app.py              # 메인 애플리케이션
-├── backend.py          # 백엔드 로직
-├── chatbot.py          # 챗봇 기능
-├── routes/             # API 라우트
-├── utils/             # 유틸리티 함수
-├── images_model/      # 이미지 분석 모델
-├── testdata/         # 테스트 데이터
-├── testpython/       # 가격 예측 모델
-└── db.sql            # 데이터베이스 스키마
-```
+- GET `/api/posts` - 게시글 목록
+- POST `/api/posts` - 게시글 작성
+- GET `/api/posts/{id}` - 게시글 조회
+- PUT `/api/posts/{id}` - 게시글 수정
+- DELETE `/api/posts/{id}` - 게시글 삭제
 
 ## 테스트
 
 테스트를 실행하려면:
 
 ```bash
-python -m pytest test.py test_comments.py
+python -m pytest
 ```
 
 ## 라이선스
