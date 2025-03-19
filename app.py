@@ -67,6 +67,7 @@ class CommentCreate(BaseModel):
     post_id: int
     content: str
     user_email: str
+    parent_id: Optional[int] = None
 
 class CommentUpdate(BaseModel):
     content: str
