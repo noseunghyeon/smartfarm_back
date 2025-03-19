@@ -605,22 +605,68 @@ async def test_db():
 @app.get("/api/sales")
 async def get_sales():
     try:
-        db = SessionLocal()
-        result = db.execute(text("SELECT * FROM sales_data_2024"))
-        # 컬럼 이름을 키로 사용하여 딕셔너리 생성
-        columns = result.keys()
-        data = [dict(zip(columns, row)) for row in result]
-        return {"success": True, "data": data}
+        query = text("""
+            SELECT 
+                CONCAT(year::text, LPAD(week::text, 2, '0')) as period,
+                "갈치", "감", "감귤", "건고추", "건멸치", "고구마", "굴", "김", 
+                "대파", "딸기", "무", "물오징어", "바나나", "방울토마토", "배", 
+                "배추", "복숭아", "사과", "상추", "새우", "수박", "시금치", 
+                "쌀", "양파", "오렌지", "오이", "전복", "참다래", "찹쌀", 
+                "체리", "토마토", "포도"
+            FROM market_data
+            WHERE year BETWEEN 2021 AND 2025
+            AND (year != 2025 OR week <= 13)
+            ORDER BY year, week
+        """)
+
+        with engine.connect() as conn:
+            result = conn.execute(query)
+            rows = result.fetchall()
+            
+            if not rows:
+                print("No data found in market_data table")
+                return {}
+
+            data = {}
+            column_names = [
+                "period", "갈치", "감", "감귤", "건고추", "건멸치", "고구마", 
+                "굴", "김", "대파", "딸기", "무", "물오징어", "바나나", 
+                "방울토마토", "배", "배추", "복숭아", "사과", "상추", "새우", 
+                "수박", "시금치", "쌀", "양파", "오렌지", "오이", "전복", 
+                "참다래", "찹쌀", "체리", "토마토", "포도"
+            ]
+
+            for row in rows:
+                period = row[0]  # YYYYWW 형식
+                period_data = {}
+                
+                # 각 품목의 가격 데이터 추가
+                for i, value in enumerate(row[1:], 1):
+                    if value is not None:  # null 값이 아닌 경우만 추가
+                        period_data[column_names[i]] = float(value)
+                
+                data[period] = period_data
+
+            print(f"Found data for {len(data)} periods")
+            print("Sample periods:", list(data.keys())[:5])
+            
+            return data
+
     except Exception as e:
+        print(f"Error in /api/sales: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        db.close()
 
 @app.get("/api/top10")
 async def get_top10():
     try:
         db = SessionLocal()
-        result = db.execute(text("SELECT * FROM top_10_sales"))
+        result = db.execute(text("""
+            SELECT crop_name, previous_year, current_year 
+            FROM sales_data_2024 
+            ORDER BY current_year DESC
+        """))
         columns = result.keys()
         data = [dict(zip(columns, row)) for row in result]
         return {"success": True, "data": data}
