@@ -38,19 +38,43 @@ class CommentService:
     async def get_post_comments(self, post_id):
         try:
             query = text("""
-                SELECT 
-                    c.comment_id,
-                    c.post_id,
-                    c.user_id,
-                    c.content,
-                    c.created_at,
-                    c.community_type,
-                    c.category,
-                    a.email
-                FROM comments c
-                JOIN auth a ON c.user_id = a.user_id
-                WHERE c.post_id = :post_id
-                ORDER BY c.created_at DESC
+                WITH RECURSIVE CommentHierarchy AS (
+                    -- 부모 댓글 조회
+                    SELECT 
+                        c.comment_id,
+                        c.post_id,
+                        c.user_id,
+                        c.content,
+                        c.created_at,
+                        c.community_type,
+                        c.parent_id,
+                        a.email,
+                        0 as depth,
+                        CAST(c.comment_id AS VARCHAR) as path
+                    FROM comments c
+                    JOIN auth a ON c.user_id = a.user_id
+                    WHERE c.post_id = :post_id AND c.parent_id IS NULL
+                    
+                    UNION ALL
+                    
+                    -- 대댓글 조회
+                    SELECT 
+                        c.comment_id,
+                        c.post_id,
+                        c.user_id,
+                        c.content,
+                        c.created_at,
+                        c.community_type,
+                        c.parent_id,
+                        a.email,
+                        ch.depth + 1,
+                        ch.path || ',' || CAST(c.comment_id AS VARCHAR)
+                    FROM comments c
+                    JOIN auth a ON c.user_id = a.user_id
+                    JOIN CommentHierarchy ch ON c.parent_id = ch.comment_id
+                )
+                SELECT * FROM CommentHierarchy
+                ORDER BY path, created_at
             """)
             
             result = self.db.execute(query, {"post_id": post_id})
@@ -63,8 +87,9 @@ class CommentService:
                 "content": comment.content,
                 "created_at": comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "community_type": comment.community_type,
-                "category": comment.category,
-                "email": comment.email
+                "parent_id": comment.parent_id,
+                "email": comment.email,
+                "depth": comment.depth
             } for comment in comments]
         except Exception as e:
             logger.error(f"게시글 댓글 조회 중 오류 발생: {str(e)}")
@@ -94,10 +119,10 @@ class CommentService:
             # 댓글 생성
             insert_query = text("""
                 INSERT INTO comments 
-                (post_id, user_id, content, created_at, community_type) 
+                (post_id, user_id, content, created_at, community_type, parent_id) 
                 VALUES 
-                (:post_id, :user_id, :content, :created_at, :community_type)
-                RETURNING comment_id, post_id, user_id, content, created_at, community_type
+                (:post_id, :user_id, :content, :created_at, :community_type, :parent_id)
+                RETURNING comment_id, post_id, user_id, content, created_at, community_type, parent_id
             """)
             
             result = self.db.execute(
@@ -107,7 +132,8 @@ class CommentService:
                     "user_id": user_id,
                     "content": comment_data.content,
                     "created_at": datetime.now(),
-                    "community_type": post_result.community_type  # 게시글의 community_type 사용
+                    "community_type": post_result.community_type,
+                    "parent_id": getattr(comment_data, 'parent_id', None)  # 대댓글인 경우 부모 댓글 ID
                 }
             )
             
@@ -123,6 +149,7 @@ class CommentService:
                 "content": new_comment.content,
                 "created_at": new_comment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "community_type": new_comment.community_type,
+                "parent_id": new_comment.parent_id,
                 "email": comment_data.user_email
             }
         except Exception as e:
