@@ -36,6 +36,10 @@ import io
 import aiohttp
 from services.comment_service import CommentService
 from services.write_service import WriteService
+from pathlib import Path
+
+app = FastAPI()
+app.router.redirect_slashes = False  # 트레일링 슬래시 자동 리다이렉션 비활성화
 
 # Load environment variables
 load_dotenv()
@@ -69,9 +73,6 @@ class CommentUpdate(BaseModel):
 
 # Backend API URL
 BACKEND_URL = "http://localhost:8000"
-
-app = FastAPI()
-app.router.redirect_slashes = False  # 트레일링 슬래시 자동 리다이렉션 비활성화
 
 # CORS 설정
 app.add_middleware(
@@ -291,7 +292,7 @@ async def get_price():
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+        
 @app.post("/auth/register")
 async def register(user: UserCreate):
     try:
@@ -540,7 +541,7 @@ async def create_comment(comment: CommentCreate):
 
 @app.put("/api/comments/{comment_id}")
 async def update_comment(
-    comment_id: int,
+    comment_id: int, 
     comment_update: CommentUpdate,
     current_user: str = Depends(get_current_user)
 ):
@@ -689,8 +690,8 @@ class CommentUpdate(BaseModel):
 # 게시글 수정
 @app.put("/api/posts/{post_id}")
 async def update_post(
-    post_id: int,
-    post_update: PostUpdate,
+    post_id: int, 
+    post_update: PostUpdate, 
     current_user: str = Depends(get_current_user)
 ):
     try:
