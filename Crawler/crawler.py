@@ -1,6 +1,8 @@
 import requests # 웹 스크래핑 과정에서 http 요청을 통해 데이터를 가져오기 위한 라리브러리
+import asyncio    # 동기 함수를 비동기로 감싸기 위해 사용
 from bs4 import BeautifulSoup # 뷰티풀 수프 라이브러리
 from urllib.parse import urljoin
+import aiohttp
 
 html = """
   <html>
@@ -41,8 +43,8 @@ html = res.text
 soup = BeautifulSoup(html, 'html.parser')
 print(soup.find_all('tr'))
 
+# 동기 뉴스 링크 스크레이핑 함수
 def scrape_news_links(url: str = 'https://www.nongmin.com/list/19', pages: int = 1):
-    # 헤더 설정 (봇 차단 방지를 위한 일반 브라우저 User-Agent 사용)
     headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                        'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -66,7 +68,7 @@ def scrape_news_links(url: str = 'https://www.nongmin.com/list/19', pages: int =
         html_content = response.text
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # 새 뉴스 영역: <div class="news_list news_content">
+        # 뉴스 영역 찾기
         news_section = soup.find('div', class_='news_list news_content')
         if not news_section:
             continue
@@ -102,33 +104,29 @@ def scrape_news_links(url: str = 'https://www.nongmin.com/list/19', pages: int =
         
     return aggregated_links
 
-def scrape_news_image(article_url):
-    """
-    주어진 뉴스 기사 URL을 요청하여 해당 페이지에서 이미지 URL을 추출합니다.
-    1. 먼저, <div class="article-image"> 내부의 <img> 태그를 확인합니다.
-    2. 만약 찾지 못하면, Open Graph 메타 태그 (og:image)를 확인합니다.
-    
-    인자:
-      article_url (str): 뉴스 기사 URL
-      
-    반환:
-      str: 이미지 URL (절대 URL) / 이미지가 없으면 None을 반환합니다.
-    """
-    # 헤더 설정
+# 동기 함수(scrape_news_links)를 비동기로 감싸는 함수
+async def async_scrape_news_links(url: str = 'https://www.nongmin.com/list/19', pages: int = 1):
+    return await asyncio.to_thread(scrape_news_links, url, pages)
+
+# 비동기 HTTP 요청 함수
+async def async_fetch(url: str, headers: dict):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.text()
+
+# 뉴스 기사에서 이미지 URL 추출
+async def async_scrape_news_image(article_url):
     headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                        'AppleWebKit/537.36 (KHTML, like Gecko) '
                        'Chrome/131.0.0.0 Safari/537.36'),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     }
-    
-    response = requests.get(article_url, headers=headers)
-    response.raise_for_status()  # 요청 실패 시 예외 발생
-    
-    html_content = response.text
+    html_content = await async_fetch(article_url, headers)
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # 1. <div class="article-image"> 내부의 <img> 태그를 먼저 확인합니다.
+    # 1. <div class="article-image"> 내부의 <img> 태그 검사
     image_container = soup.find('div', class_='article-image')
     if image_container:
         img_tag = image_container.find('img')
@@ -137,7 +135,7 @@ def scrape_news_image(article_url):
             if img_src:
                 return urljoin(article_url, img_src)
     
-    # 2. Open Graph 메타 태그 (og:image)를 이용하여 이미지 URL을 확인합니다.
+    # 2. Open Graph 메타 태그 검사
     og_image_tag = soup.find("meta", property="og:image")
     if og_image_tag:
         og_image = og_image_tag.get("content")
@@ -147,32 +145,18 @@ def scrape_news_image(article_url):
     # 이미지 URL을 찾지 못한 경우
     return None
 
-def scrape_news_content(article_url):
-    """
-    주어진 뉴스 기사 URL을 요청하여 본문 내용을 추출합니다.
-    최신 HTML 형식에 맞춰 <div class="news_txt ck-content"> 컨테이너 내부의 텍스트를 우선적으로 추출합니다.
-    만약 텍스트 내용이 없고 QR코드를 통한 내용이라면 "QR코드를 찍어보세요!" 라는 메시지를 반환합니다.
-    
-    인자:
-      article_url (str): 뉴스 기사 URL
-      
-    반환:
-      str: 기사 내용(본문 텍스트) 또는 "QR코드를 찍어보세요!" 메시지 / 내용이 없으면 None 반환
-    """
-    # 헤더 설정 (봇 차단 방지용)
+# 뉴스 기사에서 내용 추출
+async def async_scrape_news_content(article_url):
     headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                        'AppleWebKit/537.36 (KHTML, like Gecko) '
                        'Chrome/131.0.0.0 Safari/537.36'),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
     }
-    
-    response = requests.get(article_url, headers=headers)
-    response.raise_for_status()  # 요청 실패 시 예외 발생
-    html_content = response.text
+    html_content = await async_fetch(article_url, headers)
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # 먼저, 뉴스 내용 박스(news_content_box)가 존재하는지 확인합니다.
+    # 1. news_content_box 내부의 컨텐츠 추출
     content_box = soup.find('div', class_='news_content_box')
     if content_box:
         news_container = content_box.select_one("div.news_txt.ck-content")
@@ -189,9 +173,8 @@ def scrape_news_content(article_url):
             if not content:
                 return "QR코드를 찍어보세요!"
             return content
-
-    # news_content_box가 없으면 기존 방식대로 진행합니다.
-    # 1. div.news_txt.ck-content 내부의 콘텐츠 추출 시도
+    
+    # 2. 별도 뉴스 컨테이너 처리
     news_container = soup.select_one("div.news_txt.ck-content")
     if news_container:
         # 전체 텍스트 추출 또는 <p> 태그만 선택할 수 있습니다.
@@ -204,30 +187,25 @@ def scrape_news_content(article_url):
         content = news_container.get_text(separator="\n", strip=True)
         if content:
             return content
-
-    # 2. 기존 방식: div.article-content 내부의 텍스트 추출
+    
+    # 3. 대체 방식: article-content 처리
     content_container = soup.find('div', class_='article-content')
     if content_container:
         text = content_container.get_text(separator="\n", strip=True)
         if text:
             return text
-
-    # 3. fallback: inline 스타일 속성이 있는 <p> 태그들 검사
+    
+    # 4. 마지막 fallback: inline 스타일의 p 태그
     paragraphs = soup.select('p[style]')
     if paragraphs:
         content = "\n".join(p.get_text(strip=True) for p in paragraphs)
         if content:
             return content
-
+    
     return None
 
 if __name__ == '__main__':
-    # 뉴스 링크 추출 예제
+    # 테스트: 동기 함수 호출 예제
     links = scrape_news_links()
     for news in links:
         print(f"Title: {news['title']}, Link: {news['link']}")
-        
-    # (예시) 특정 뉴스 기사 URL에 대해 이미지 URL 추출
-    # article_url = 'https://www.nongmin.com/article/123'
-    # image_url = scrape_news_image(article_url)
-    # print(f"Image URL: {image_url}")
