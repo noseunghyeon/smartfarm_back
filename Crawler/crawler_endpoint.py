@@ -6,7 +6,7 @@ router = APIRouter()
 @router.get("/news-links", tags=["Crawler"])
 async def get_news_links(               
     list_id: int = Query(19, alias="list"),
-    pages: int = Query(1)  # 추가: 스크랩할 페이지 수 (기본값 1)
+    pages: int = Query(2, description="스크랩할 페이지 수 (기본값 2)")
 ):
     """
     뉴스 관련 링크를 크롤링하여 반환합니다.
@@ -14,7 +14,7 @@ async def get_news_links(
     Query parameter 'list'를 통해 크롤링할 URL 번호를 지정하며,
     'pages' 파라미터로 추가 페이지 수를 지정할 수 있습니다.
       - /news-links?list=19 : 첫 페이지 (SaleNews 기본값)
-      - /news-links?list=19&pages=3 : 1~3 페이지의 뉴스 기사 스크랩
+      - /news-links?list=19&pages=2 : 1~2 페이지의 뉴스 기사 스크랩
     """
     try:
         # list_id를 통해 크롤링 대상 URL 생성
