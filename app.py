@@ -37,9 +37,18 @@ import aiohttp
 from services.comment_service import CommentService
 from services.write_service import WriteService
 from pathlib import Path
+from swagger import custom_openapi
 
-app = FastAPI()
-app.router.redirect_slashes = False  # 트레일링 슬래시 자동 리다이렉션 비활성화
+app = FastAPI(
+    title="농산물 가격 예측 API",
+    description="농산물 가격 예측 및 커뮤니티 서비스를 위한 API",
+    version="1.0.0",
+    docs_url="/swagger",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
+
+app.openapi = lambda: custom_openapi(app)
 
 # Load environment variables
 load_dotenv()
