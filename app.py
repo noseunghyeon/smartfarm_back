@@ -43,7 +43,7 @@ app = FastAPI(
     title="농산물 가격 예측 API",
     description="농산물 가격 예측 및 커뮤니티 서비스를 위한 API",
     version="1.0.0",
-    docs_url="/docs",
+    docs_url="/swagger",
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
