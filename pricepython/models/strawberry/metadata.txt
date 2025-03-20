@@ -1,0 +1,6 @@
+Model Performance Metrics for strawberry
+Data points used: 889
+R2 Score: 0.9581
+MAE: 2624.46
+RMSE: 4996.83
+Features used: month, day, dayofweek, season, price_ma3, price_ma7, price_ma30, price_std3, price_std7, price_std30, price_change, price_change_ma7, month_sin, month_cos
