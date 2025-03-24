@@ -683,7 +683,7 @@ async def get_top10():
         db = SessionLocal()
         result = db.execute(text("""
             SELECT crop_name, previous_year, current_year 
-            FROM sales_data_2024
+            FROM sales_data
             ORDER BY current_year DESC
         """))
         columns = result.keys()
@@ -728,7 +728,7 @@ async def get_text(request: Request):
 async def get_market():
     try:
         db = SessionLocal()
-        result = db.execute(text("SELECT * FROM sales_data_2024"))
+        result = db.execute(text("SELECT * FROM sales_data"))
         columns = result.keys()
         data = [dict(zip(columns, row)) for row in result]
         return {"success": True, "data": data}
