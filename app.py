@@ -36,9 +36,19 @@ import aiohttp
 from services.comment_service import CommentService
 from services.write_service import WriteService
 from pathlib import Path
+from swagger import custom_openapi
+from fastapi.responses import FileResponse
 
-app = FastAPI()
-app.router.redirect_slashes = False  # 트레일링 슬래시 자동 리다이렉션 비활성화
+app = FastAPI(
+    title="농산물 가격 예측 API",
+    description="농산물 가격 예측 및 커뮤니티 서비스를 위한 API",
+    version="1.0.0",
+    docs_url="/swagger",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
+
+app.openapi = lambda: custom_openapi(app)
 
 # Load environment variables
 load_dotenv()
@@ -139,6 +149,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         return user_id
     except jwt.PyJWTError:
         raise HTTPException(status_code=401)
+
 
 @app.get("/")
 async def root():
@@ -284,7 +295,7 @@ async def get_satellite():
         }
 
 @app.get("/api/price")
-async def get_price():
+async def get_price_info():
     try:
         result = get_price_data()
         if result is None:
@@ -292,6 +303,15 @@ async def get_price():
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+# CSV 파일을 제공하는 엔드포인트
+@app.get("/pricedata/{filename}")
+async def serve_price_data(filename: str):
+    file_path = os.path.join("pricedata", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"error": "File not found"}
         
 @app.post("/auth/register")
 async def register(user: UserCreate):
