@@ -1,80 +1,108 @@
--- Auth 테이블 생성
-CREATE TABLE Auth (
-    "user_id" SERIAL NOT NULL,          -- 자동 증가 ID
-    "email" VARCHAR(100) NOT NULL,      -- 이메일
-    "password" VARCHAR(255) NOT NULL,   -- 비밀번호
-    "birth_date" DATE NULL,             -- 생년월일 
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 생성일자
-    CONSTRAINT "PK_AUTH" PRIMARY KEY ("user_id") -- 기본 키
+CREATE TABLE `auth` (
+	`key`	[PK] integer	NOT NULL,
+	`email`	character varying(100)	NULL,
+	`password`	character varying(255)	NULL,
+	`birth_date`	date	NULL,
+	`created_at`	timestamp without time zone	NULL
 );
 
--- Write 테이블 생성
-CREATE TABLE Write (
-    "post_id" SERIAL NOT NULL,          -- 게시글 ID
-    "user_id" INT NOT NULL,             -- 작성자 ID (외래 키)
-    "title" VARCHAR(50) NOT NULL,       -- 게시글 제목
-    "name" VARCHAR(10) NULL,            -- 작성자 이름
-    "content" VARCHAR(100) NULL,        -- 게시글 내용 
-    "date" DATE DEFAULT CURRENT_DATE,   -- 게시글 작성 날짜
-    CONSTRAINT "PK_POST" PRIMARY KEY ("post_id"), -- 기본 키
-    CONSTRAINT "FK_Auth_TO_Post_1" FOREIGN KEY ("user_id") REFERENCES "Auth" ("user_id") -- 외래 키
-    ON DELETE CASCADE                   -- 작성자 삭제 시 게시글 삭제
+CREATE TABLE `sales_data` (
+	`category`	character varying(50)	NULL,
+	`previous_year`	numeric	NULL,
+	`base_date`	numeric	NULL
 );
 
--- top_10_sales 테이블 생성
-CREATE TABLE "top_10_sales" (
-	"Key" VARCHAR(255) NOT NULL, -- 기본 키
-	"category" VARCHAR(50) NULL, -- 카테고리
-	"previous_year"	NUMERIC NULL, -- 전년도
-	"base_date"	NUMERIC NULL -- 기준 날짜
+CREATE TABLE `write` (
+	`post_id`	[PK] integer	NOT NULL,
+	`user_id`	[FK} integer	NOT NULL,
+	`title`	character varying(50)	NULL,
+	`content`	character varying(700)	NULL,
+	`date`	date	NULL,
+	`category`	character varying(10)	NULL,
+	`community_type`	community_type	NULL
 );
 
--- sales_data_2024 테이블 생성
-CREATE TABLE "sales_data_2024" (
-	"week" VARCHAR(10) NOT NULL, -- 주차
-	"persimmon" NUMERIC NULL, -- 감
-	"mandarin" NUMERIC NULL, -- 만다린오렌지
-	"dried_pepper" NUMERIC NULL, -- 건고추
-	"dried_anchovy" NUMERIC NULL, -- 건멸치
-	"sweet_potato" NUMERIC NULL, -- 고구마
-	"oyster" NUMERIC NULL, -- 굴
-	"seaweed" NUMERIC NULL, -- 미역
-	"green_onion" NUMERIC NULL, -- 대파
-	"strawberry" NUMERIC NULL, -- 딸기
-	"garlic" NUMERIC NULL, -- 마늘
-	"radish" NUMERIC NULL, -- 무
-	"squid" NUMERIC NULL, -- 오징어
-	"banana" NUMERIC NULL, -- 바나나
-	"cherry_tomato" NUMERIC NULL, -- 방울토마토
-	"pear" NUMERIC NULL -- 배
+CREATE TABLE `comments` (
+	`Key`	[PK] integer	NOT NULL,
+	`post_id`	[FK} integer	NOT NULL,
+	`user_id`	[FK} integer	NOT NULL,
+	`content`	text	NULL,
+	`created_at`	timestamp without time zone	NULL,
+	`community_type`	character varying	NULL,
+	`parent_id`	integer	NULL
 );
 
--- Auth 테이블 제약 조건 추가
-ALTER TABLE "Auth" ADD CONSTRAINT "PK_AUTH" PRIMARY KEY (
-	"user_id" -- 기본 키
+CREATE TABLE `market_data` (
+	`year`	bigint	NULL,
+	`week`	bigint	NULL,
+	`갈치`	double precision	NULL,
+	`감`	double precision	NULL,
+	`감귤`	double precision	NULL,
+	`건고추`	double precision	NULL,
+	`건멸치`	double precision	NULL,
+	`고구마`	double precision	NULL,
+	`굴`	double precision	NULL,
+	`김`	double precision	NULL,
+	`대파`	double precision	NULL,
+	`딸기`	double precision	NULL,
+	`마늘`	double precision	NULL,
+	`무`	double precision	NULL,
+	`물오징어`	double precision	NULL,
+	`바나나`	double precision	NULL,
+	`방울토마토`	double precision	NULL,
+	`배`	double precision	NULL,
+	`배추`	double precision	NULL,
+	`복숭아`	double precision	NULL,
+	`사과`	double precision	NULL,
+	`상추`	double precision	NULL,
+	`새우`	double precision	NULL,
+	`수박`	double precision	NULL,
+	`시금치`	double precision	NULL,
+	`쌀`	double precision	NULL,
+	`양파`	double precision	NULL,
+	`오렌지`	double precision	NULL,
+	`오이`	double precision	NULL,
+	`전복`	double precision	NULL,
+	`참다래`	double precision	NULL,
+	`참외`	double precision	NULL,
+	`찹쌀`	double precision	NULL,
+	`체리`	double precision	NULL,
+	`토마토`	double precision	NULL,
+	`포도`	double precision	NULL
 );
 
--- top_10_sales 테이블 제약 조건 추가
-ALTER TABLE "top_10_sales" ADD CONSTRAINT "PK_TOP_10_SALES" PRIMARY KEY (
-	"Key" -- 기본 키
+ALTER TABLE `auth` ADD CONSTRAINT `PK_AUTH` PRIMARY KEY (
+	`key`
 );
 
--- Write 테이블 제약 조건 추가
-ALTER TABLE "Write" ADD CONSTRAINT "PK_POST" PRIMARY KEY (
-	"post_id", -- 기본 키
-	"user_id" -- 기본 키
+ALTER TABLE `write` ADD CONSTRAINT `PK_WRITE` PRIMARY KEY (
+	`post_id`,
+	`user_id`
 );
 
--- sales_data_2024 테이블 제약 조건 추가
-ALTER TABLE "sales_data_2024" ADD CONSTRAINT "PK_SALES_DATA_2024" PRIMARY KEY (
-	"week" -- 기본 키
+ALTER TABLE `comments` ADD CONSTRAINT `PK_COMMENTS` PRIMARY KEY (
+	`Key`,
+	`post_id`,
+	`user_id`
 );
 
--- Write 테이블 외래 키 추가 
-ALTER TABLE "Write" ADD CONSTRAINT "FK_Auth_TO_Post_1" FOREIGN KEY (
-	"user_id" -- 외래 키
+ALTER TABLE `write` ADD CONSTRAINT `FK_auth_TO_write_1` FOREIGN KEY (
+	`user_id`
 )
-REFERENCES "Auth" (
-	"user_id" -- 기본 키
+REFERENCES `auth` (
+	`key`
+);
+
+ALTER TABLE `comments` ADD CONSTRAINT `FK_auth_TO_comments_1` FOREIGN KEY (
+	`post_id`
 )
-ON DELETE CASCADE;
+REFERENCES `auth` (
+	`key`
+);
+
+ALTER TABLE `comments` ADD CONSTRAINT `FK_write_TO_comments_1` FOREIGN KEY (
+	`user_id`
+)
+REFERENCES `write` (
+	`user_id`
+);
