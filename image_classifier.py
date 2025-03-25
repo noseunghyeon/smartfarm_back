@@ -31,6 +31,8 @@ class ImageClassifier:
         self.apple_session = self._load_apple_model()
         self.potato_session = self._load_potato_model()
         self.tomato_session = self._load_tomato_model()
+        self.grape_session = self._load_grape_model()
+        self.corn_session = self._load_corn_model()
         
         # 클래스 레이블 정의
         self.kiwi_labels = {
@@ -56,30 +58,45 @@ class ImageClassifier:
         }
 
         self.apple_labels = {
-            0: "시과 검은무늬병",
-            1: "흑색 부패병",
-            2: "참나무 사과 녹병",
+            0: "사과 검은무늬병",
+            1: "사과 흑색 부패병",
+            2: "사과 삼나무 녹병",
             3: "정상"
         }
 
         self.potato_labels = {
             0: "잎마름병",
-            1: "역병",
+            1: "감자 역병",
             2: "정상"
         }
 
         self.tomato_labels = {
             0: "박테리아성 반점병",
-            1: "잎마름병",
-            2: "역병",
-            3: "잎곰팡이병",
-            4: "세프토이라 잎반점병",
-            5: "거미 진드기 피해",
-            6: "표적반점병",
-            7: "황화 잎말림 바이러스",
-            8: "모자이크 바이러스",
+            1: "토마토 잎마름병",
+            2: "토마토 역병",
+            3: "토마토 잎곰팡이병",
+            4: "토마토 세프토이라 잎반점병",
+            5: "토마토 거미 진드기 피해",
+            6: "토마토 표적반점병",
+            7: "토마토 황화 잎말림 바이러스",
+            8: "토마토 모자이크 바이러스",
             9: "정상"
         }
+
+        self.grape_labels = {
+            0: "포도 에스카병",
+            1: "포도 흑색 부패병",
+            2: "포도 잎마름병",
+            3: "정상"
+        }
+
+        self.corn_labels = {
+            0: "옥수수 세르코스포라 잎반점병",
+            1: "옥수수 일반 녹병",
+            2: "옥수수 북부 잎마름병",
+            3: "정상"
+        }
+              
 
     def _load_kiwi_model(self):
         try:
@@ -175,6 +192,37 @@ class ImageClassifier:
         except Exception as e:
             logger.error(f"토마토 모델 로드 실패: {str(e)}")
             return None
+
+    def _load_grape_model(self):
+        try:
+            url = "https://huggingface.co/ro981009/grape-classifier-h5/resolve/main/model.h5"
+            response = requests.get(url)
+            model_bytes = io.BytesIO(response.content)
+            temp_model_path = "grape_model.h5"
+            with open(temp_model_path, "wb") as f:
+                f.write(model_bytes.getvalue())
+            model = tf.keras.models.load_model(temp_model_path)
+            os.remove(temp_model_path)
+            return model
+        except Exception as e:
+            logger.error(f"포도 모델 로드 실패: {str(e)}")
+            return None
+
+    def _load_corn_model(self):
+        try:
+            url = "https://huggingface.co/ro981009/corn-classifier-h5/resolve/main/model.h5"
+            response = requests.get(url)
+            model_bytes = io.BytesIO(response.content)
+            temp_model_path = "corn_model.h5"
+            with open(temp_model_path, "wb") as f:
+                f.write(model_bytes.getvalue())
+            model = tf.keras.models.load_model(temp_model_path)
+            os.remove(temp_model_path)
+            return model
+        except Exception as e:
+            logger.error(f"옥수수 모델 로드 실패: {str(e)}")
+            return None
+
 
     def preprocess_image(self, image, target_size=(224, 224)):
         """공통 이미지 전처리 함수"""
@@ -395,6 +443,64 @@ class ImageClassifier:
 
         except Exception as e:
             logger.error(f"토마토 분류 오류: {str(e)}")
+            raise
+
+    async def classify_grape(self, image: Image.Image) -> ImageClassificationResponse:
+        try:
+            if self.grape_session is None:
+                raise ValueError("포도 모델이 로드되지 않았습니다")
+
+            image = self.preprocess_image(image)
+            img_array = np.array(image).astype('float32') / 255.0
+            img_array = np.expand_dims(img_array, axis=0)
+
+            predictions = self.grape_session.predict(img_array)
+            predicted_idx = np.argmax(predictions[0])
+            confidence = float(predictions[0][predicted_idx])
+
+            class_probs = {
+                self.grape_labels[i]: float(predictions[0][i])
+                for i in range(len(self.grape_labels))
+            }
+
+            return ImageClassificationResponse(
+                predicted_class=self.grape_labels[predicted_idx],
+                confidence=confidence,
+                class_probabilities=class_probs,
+                message="포도 질병 분석이 완료되었습니다"
+            )
+
+        except Exception as e:
+            logger.error(f"포도 분류 오류: {str(e)}")
+            raise
+
+    async def classify_corn(self, image: Image.Image) -> ImageClassificationResponse:
+        try:
+            if self.corn_session is None:
+                raise ValueError("옥수수 모델이 로드되지 않았습니다")
+
+            image = self.preprocess_image(image)
+            img_array = np.array(image).astype('float32') / 255.0
+            img_array = np.expand_dims(img_array, axis=0)   
+
+            predictions = self.corn_session.predict(img_array)
+            predicted_idx = np.argmax(predictions[0])
+            confidence = float(predictions[0][predicted_idx])
+
+            class_probs = {
+                self.corn_labels[i]: float(predictions[0][i])
+                for i in range(len(self.corn_labels))
+            }
+
+            return ImageClassificationResponse(
+                predicted_class=self.corn_labels[predicted_idx],
+                confidence=confidence,
+                class_probabilities=class_probs,
+                message="옥수수 질병 분석이 완료되었습니다"
+            )
+
+        except Exception as e:
+            logger.error(f"옥수수 분류 오류: {str(e)}")
             raise
 
 # 싱글톤 인스턴스 생성
