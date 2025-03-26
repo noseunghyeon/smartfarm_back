@@ -15,12 +15,8 @@ def custom_openapi(app: FastAPI):
     # API 태그 정의
     openapi_schema["tags"] = [
         {
-            "name": "인증",
-            "description": "사용자 인증 관련 API"
-        },
-        {
-            "name": "커뮤니티",
-            "description": "게시판 및 댓글 관련 API"
+            "name": "기본",
+            "description": "기본 API"
         },
         {
             "name": "이미지 분류",
@@ -37,6 +33,22 @@ def custom_openapi(app: FastAPI):
         {
             "name": "챗봇",
             "description": "AI 챗봇 관련 API"
+        },
+        {
+            "name": "인증",
+            "description": "사용자 인증 관련 API"
+        },
+        {
+            "name": "커뮤니티",
+            "description": "게시판 및 댓글 관련 API"
+        },
+        {
+            "name": "YouTube",
+            "description": " 추천 교육 영상 YouTube API"
+        },
+        {
+            "name": "Crawler",
+            "description": "소비 트렌드 농산물 뉴스 API"
         }
     ]
 
