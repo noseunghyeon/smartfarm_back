@@ -55,7 +55,7 @@ def custom_openapi(app: FastAPI):
                 operation["tags"] = ["커뮤니티"]
             
             # 이미지 분류 관련 엔드포인트
-            if any(img_path in path for img_path in ["/kiwi_predict", "/chamoe_predict", "/plant_predict", "/strawberry_predict", "/potato_predict", "/tomato_predict", "/apple_predict"]):
+            if any(img_path in path for img_path in ["/kiwi_predict", "/chamoe_predict", "/plant_predict", "/strawberry_predict", "/potato_predict", "/tomato_predict", "/apple_predict", "/grape_predict", "/corn_predict"]):
                 operation["tags"] = ["이미지 분류"]
             
             # 날씨 관련 엔드포인트
