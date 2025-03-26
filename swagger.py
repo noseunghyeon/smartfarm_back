@@ -43,17 +43,6 @@ def custom_openapi(app: FastAPI):
     # 라우트에 태그 추가
     for path, route in openapi_schema["paths"].items():
         for method, operation in route.items():
-            if "tags" not in operation:
-                operation["tags"] = ["기본"]
-            
-            # 인증 관련 엔드포인트
-            if any(auth_path in path for auth_path in ["/auth/", "/register", "/login"]):
-                operation["tags"] = ["인증"]
-            
-            # 커뮤니티 관련 엔드포인트
-            if any(comm_path in path for comm_path in ["/api/write/", "/api/comments/", "/api/posts/"]):
-                operation["tags"] = ["커뮤니티"]
-            
             # 이미지 분류 관련 엔드포인트
             if any(img_path in path for img_path in ["/kiwi_predict", "/chamoe_predict", "/plant_predict", "/strawberry_predict", "/potato_predict", "/tomato_predict", "/apple_predict", "/grape_predict", "/corn_predict"]):
                 operation["tags"] = ["이미지 분류"]
@@ -70,5 +59,17 @@ def custom_openapi(app: FastAPI):
             if any(chat_path in path for chat_path in ["/chat", "/reset"]):
                 operation["tags"] = ["챗봇"]
 
+            if "tags" not in operation:
+                operation["tags"] = ["기본"]
+            
+            # 인증 관련 엔드포인트
+            if any(auth_path in path for auth_path in ["/auth/", "/register", "/login"]):
+                operation["tags"] = ["인증"]
+            
+            # 커뮤니티 관련 엔드포인트
+            if any(comm_path in path for comm_path in ["/api/write/", "/api/comments/", "/api/posts/"]):
+                operation["tags"] = ["커뮤니티"]
+            
+            
     app.openapi_schema = openapi_schema
     return app.openapi_schema 
