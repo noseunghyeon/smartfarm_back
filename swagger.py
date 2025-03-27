@@ -15,12 +15,8 @@ def custom_openapi(app: FastAPI):
     # API 태그 정의
     openapi_schema["tags"] = [
         {
-            "name": "인증",
-            "description": "사용자 인증 관련 API"
-        },
-        {
-            "name": "커뮤니티",
-            "description": "게시판 및 댓글 관련 API"
+            "name": "기본",
+            "description": "기본 API"
         },
         {
             "name": "이미지 분류",
@@ -37,25 +33,30 @@ def custom_openapi(app: FastAPI):
         {
             "name": "챗봇",
             "description": "AI 챗봇 관련 API"
+        },
+        {
+            "name": "인증",
+            "description": "사용자 인증 관련 API"
+        },
+        {
+            "name": "커뮤니티",
+            "description": "게시판 및 댓글 관련 API"
+        },
+        {
+            "name": "YouTube",
+            "description": " 추천 교육 영상 YouTube API"
+        },
+        {
+            "name": "Crawler",
+            "description": "소비 트렌드 농산물 뉴스 API"
         }
     ]
 
     # 라우트에 태그 추가
     for path, route in openapi_schema["paths"].items():
         for method, operation in route.items():
-            if "tags" not in operation:
-                operation["tags"] = ["기본"]
-            
-            # 인증 관련 엔드포인트
-            if any(auth_path in path for auth_path in ["/auth/", "/register", "/login"]):
-                operation["tags"] = ["인증"]
-            
-            # 커뮤니티 관련 엔드포인트
-            if any(comm_path in path for comm_path in ["/api/write/", "/api/comments/", "/api/posts/"]):
-                operation["tags"] = ["커뮤니티"]
-            
             # 이미지 분류 관련 엔드포인트
-            if any(img_path in path for img_path in ["/kiwi_predict", "/chamoe_predict", "/plant_predict", "/strawberry_predict", "/potato_predict", "/tomato_predict", "/apple_predict"]):
+            if any(img_path in path for img_path in ["/kiwi_predict", "/chamoe_predict", "/plant_predict", "/strawberry_predict", "/potato_predict", "/tomato_predict", "/apple_predict", "/grape_predict", "/corn_predict"]):
                 operation["tags"] = ["이미지 분류"]
             
             # 날씨 관련 엔드포인트
@@ -70,5 +71,17 @@ def custom_openapi(app: FastAPI):
             if any(chat_path in path for chat_path in ["/chat", "/reset"]):
                 operation["tags"] = ["챗봇"]
 
+            if "tags" not in operation:
+                operation["tags"] = ["기본"]
+            
+            # 인증 관련 엔드포인트
+            if any(auth_path in path for auth_path in ["/auth/", "/register", "/login"]):
+                operation["tags"] = ["인증"]
+            
+            # 커뮤니티 관련 엔드포인트
+            if any(comm_path in path for comm_path in ["/api/write/", "/api/comments/", "/api/posts/"]):
+                operation["tags"] = ["커뮤니티"]
+            
+            
     app.openapi_schema = openapi_schema
     return app.openapi_schema 

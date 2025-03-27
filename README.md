@@ -114,7 +114,7 @@ API 문서는 서버 실행 후 다음 URL에서 확인할 수 있습니다:
 ### 농산물 정보
 
 - GET `/api/weather` - 도시별 날씨 정보
-- POST `/api/disease/predict` - 참외 질병 예측
+- POST `/api/disease/predict` - 질병 이미지 분석
 - GET `/api/price/predict` - 작물 가격 예측
 - GET `/api/price/current` - 실시간 가격 정보
 

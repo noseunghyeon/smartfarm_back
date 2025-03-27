@@ -269,8 +269,28 @@ async def apple_predict(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"사과 예측 처리 오류: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
-
-
+    
+@app.post("/grape_predict", response_model=ImageClassificationResponse)
+async def grape_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_grape(image)
+        return result
+    except Exception as e:
+        logger.error(f"포도 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/corn_predict", response_model=ImageClassificationResponse)
+async def corn_predict(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = await classifier.classify_corn(image)
+        return result
+    except Exception as e:
+        logger.error(f"옥수수 예측 처리 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/satellite")
 async def get_satellite():
