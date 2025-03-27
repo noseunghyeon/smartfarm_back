@@ -38,6 +38,7 @@ from services.write_service import WriteService
 from pathlib import Path
 from swagger import custom_openapi
 from fastapi.responses import FileResponse
+from fastapi import Body
 
 app = FastAPI(
     title="농산물 가격 예측 API",
@@ -1330,6 +1331,7 @@ class QuizQuestion(BaseModel):
     option_2: str
     option_3: str
     option_4: str
+    correct_answer: str
 
 class QuizAnswer(BaseModel):
     quiz_id: int
@@ -1348,7 +1350,7 @@ async def get_quiz_by_crop(crop: str):
     db = SessionLocal()
     try:
         query = text("""
-            SELECT id, crop, question, option_1, option_2, option_3, option_4 
+            SELECT id, crop, question, option_1, option_2, option_3, option_4, correct_answer
             FROM quiz 
             WHERE crop = :crop
         """)
@@ -1363,7 +1365,8 @@ async def get_quiz_by_crop(crop: str):
                 "option_1": row[3],
                 "option_2": row[4],
                 "option_3": row[5],
-                "option_4": row[6]
+                "option_4": row[6],
+                "correct_answer": row[7]
             })
         return quiz_data
     except Exception as e:
@@ -1371,50 +1374,25 @@ async def get_quiz_by_crop(crop: str):
     finally:
         db.close()
 
-# --- 퀴즈 정답 제출 및 채점 엔드포인트 ---
-@app.post("/api/quiz/submit")
-async def submit_quiz_answers(submission: QuizSubmission):
+# 작물 이름 조회 엔드포인트
+class CropOption(BaseModel):
+    id: int
+    crop: str
+
+@app.get("/api/quiz", response_model=List[CropOption])
+async def get_crop_options():
     """
-    클라이언트가 제출한 퀴즈 답안을 평가하여 각 문제의 채점 결과와 
-    최종 맞은 개수를 반환합니다.
-    
-    예시 요청 JSON:
-    {
-        "answers": [
-            {"quiz_id": 1, "selected_answer": "보라"},
-            {"quiz_id": 2, "selected_answer": "인도"},
-            ...
-        ]
-    }
+    퀴즈 테이블에서 중복되지 않는 작물명을 추출하여,
+    각 작물의 최초 id(또는 그룹화한 id)를 함께 반환합니다.
     """
     db = SessionLocal()
     try:
-        correct_count = 0
-        details = []
-        for answer in submission.answers:
-            query = text("SELECT correct_answer FROM quiz WHERE id = :quiz_id")
-            result = db.execute(query, {"quiz_id": answer.quiz_id})
-            correct_answer = result.scalar()
-
-            if correct_answer is None:
-                details.append({
-                    "quiz_id": answer.quiz_id,
-                    "selected_answer": answer.selected_answer,
-                    "result": "문제를 찾을 수 없습니다"
-                })
-            else:
-                if answer.selected_answer == correct_answer:
-                    result_text = "정답입니다!"
-                    correct_count += 1
-                else:
-                    result_text = "오답입니다."
-                details.append({
-                    "quiz_id": answer.quiz_id,
-                    "selected_answer": answer.selected_answer,
-                    "result": result_text,
-                    "correct_answer": correct_answer  # 클라이언트에 정답 제공 여부는 선택사항입니다.
-                })
-        return {"success": True, "correct_count": correct_count, "details": details}
+        # 그룹별 최소 id를 작물의 고유 id로 사용합니다.
+        query = text("SELECT MIN(id) AS id, crop FROM quiz GROUP BY crop")
+        results = db.execute(query)
+        rows = results.fetchall()
+        crops = [{"id": row[0], "crop": row[1]} for row in rows]
+        return crops
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
