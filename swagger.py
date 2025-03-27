@@ -43,6 +43,10 @@ def custom_openapi(app: FastAPI):
             "description": "게시판 및 댓글 관련 API"
         },
         {
+            "name": "경영모의계산",
+            "description": "경영모의계산 관련 API"
+        },
+        {
             "name": "YouTube",
             "description": " 추천 교육 영상 YouTube API"
         },
@@ -81,6 +85,10 @@ def custom_openapi(app: FastAPI):
             # 커뮤니티 관련 엔드포인트
             if any(comm_path in path for comm_path in ["/api/write/", "/api/comments/", "/api/posts/"]):
                 operation["tags"] = ["커뮤니티"]
+            
+            # 경영모의계산 관련 엔드포인트
+            if any(business_path in path for business_path in ["/api/crop-data"]):
+                operation["tags"] = ["경영모의계산"]
             
             
     app.openapi_schema = openapi_schema
