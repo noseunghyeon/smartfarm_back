@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, R
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 import jwt
@@ -1297,6 +1297,108 @@ async def get_predictions(crop: str, city: str):
     except Exception as e:
         print(f"Error in predictions: {str(e)}")
         return {"error": str(e)}
+
+# --- 퀴즈 관련 Pydantic 모델 추가 ---
+from pydantic import BaseModel
+from typing import List
+
+class QuizQuestion(BaseModel):
+    id: int
+    crop: str
+    question: str
+    option_1: str
+    option_2: str
+    option_3: str
+    option_4: str
+
+class QuizAnswer(BaseModel):
+    quiz_id: int
+    selected_answer: str
+
+class QuizSubmission(BaseModel):
+    answers: List[QuizAnswer]
+
+# --- 퀴즈 문제 조회 엔드포인트 ---
+@app.get("/api/quiz/{crop}", response_model=List[QuizQuestion])
+async def get_quiz_by_crop(crop: str):
+    """
+    지정한 작물(crop)에 해당하는 퀴즈 문제와 선택지를 반환합니다.
+    정답 정보는 포함하지 않아, 클라이언트가 퀴즈를 풀 때 미리 알 수 없습니다.
+    """
+    db = SessionLocal()
+    try:
+        query = text("""
+            SELECT id, crop, question, option_1, option_2, option_3, option_4 
+            FROM quiz 
+            WHERE crop = :crop
+        """)
+        results = db.execute(query, {"crop": crop})
+        rows = results.fetchall()
+        quiz_data = []
+        for row in rows:
+            quiz_data.append({
+                "id": row[0],
+                "crop": row[1],
+                "question": row[2],
+                "option_1": row[3],
+                "option_2": row[4],
+                "option_3": row[5],
+                "option_4": row[6]
+            })
+        return quiz_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+# --- 퀴즈 정답 제출 및 채점 엔드포인트 ---
+@app.post("/api/quiz/submit")
+async def submit_quiz_answers(submission: QuizSubmission):
+    """
+    클라이언트가 제출한 퀴즈 답안을 평가하여 각 문제의 채점 결과와 
+    최종 맞은 개수를 반환합니다.
+    
+    예시 요청 JSON:
+    {
+        "answers": [
+            {"quiz_id": 1, "selected_answer": "보라"},
+            {"quiz_id": 2, "selected_answer": "인도"},
+            ...
+        ]
+    }
+    """
+    db = SessionLocal()
+    try:
+        correct_count = 0
+        details = []
+        for answer in submission.answers:
+            query = text("SELECT correct_answer FROM quiz WHERE id = :quiz_id")
+            result = db.execute(query, {"quiz_id": answer.quiz_id})
+            correct_answer = result.scalar()
+
+            if correct_answer is None:
+                details.append({
+                    "quiz_id": answer.quiz_id,
+                    "selected_answer": answer.selected_answer,
+                    "result": "문제를 찾을 수 없습니다"
+                })
+            else:
+                if answer.selected_answer == correct_answer:
+                    result_text = "정답입니다!"
+                    correct_count += 1
+                else:
+                    result_text = "오답입니다."
+                details.append({
+                    "quiz_id": answer.quiz_id,
+                    "selected_answer": answer.selected_answer,
+                    "result": result_text,
+                    "correct_answer": correct_answer  # 클라이언트에 정답 제공 여부는 선택사항입니다.
+                })
+        return {"success": True, "correct_count": correct_count, "details": details}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
