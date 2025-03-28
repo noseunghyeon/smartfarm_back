@@ -53,7 +53,7 @@ class ImageClassifier:
         }
 
         self.strawberry_labels = {
-            0: "잎끝마름",
+            0: "딸기 잎끝마름",
             1: "정상"
         }
 
@@ -65,13 +65,13 @@ class ImageClassifier:
         }
 
         self.potato_labels = {
-            0: "잎마름병",
+            0: "감자 잎마름병",
             1: "감자 역병",
             2: "정상"
         }
 
         self.tomato_labels = {
-            0: "박테리아성 반점병",
+            0: "토마토 박테리아성 반점병",
             1: "토마토 잎마름병",
             2: "토마토 역병",
             3: "토마토 잎곰팡이병",

@@ -53,6 +53,10 @@ def custom_openapi(app: FastAPI):
         {
             "name": "Crawler",
             "description": "소비 트렌드 농산물 뉴스 API"
+        },
+        {
+            "name": "퀴즈",
+            "description": "퀴즈 관련 API"
         }
     ]
 
@@ -89,7 +93,10 @@ def custom_openapi(app: FastAPI):
             # 경영모의계산 관련 엔드포인트
             if any(business_path in path for business_path in ["/api/crop-data"]):
                 operation["tags"] = ["경영모의계산"]
-            
+
+            # 퀴즈 관련 엔드포인트
+            if any(quiz_path in path for quiz_path in ["/api/quiz"]):
+                operation["tags"] = ["퀴즈"]
             
     app.openapi_schema = openapi_schema
     return app.openapi_schema 
