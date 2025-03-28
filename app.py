@@ -1398,6 +1398,112 @@ async def get_crop_options():
     finally:
         db.close()
 
+@app.get("/api/data/{table_name}")
+async def get_table_data(table_name: str):
+    try:
+        # 데이터베이스 연결
+        engine = create_engine(os.getenv("DATABASE_URL"))
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+        
+        # 테이블 존재 여부 확인
+        result = db.execute(text(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table_name}')"))
+        table_exists = result.scalar()
+        
+        if not table_exists:
+            raise HTTPException(status_code=404, detail=f"테이블 '{table_name}'을(를) 찾을 수 없습니다.")
+        
+        # 테이블 데이터 조회
+        query = text(f"SELECT * FROM {table_name}")
+        result = db.execute(query)
+        columns = result.keys()
+        data = [dict(zip(columns, row)) for row in result]
+        
+        db.close()
+        return {"status": "success", "data": data}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/crop-data")
+async def get_crop_data():
+    """
+    작물별 수익 데이터를 조회합니다.
+    """
+    try:
+        db = SessionLocal()
+        
+        # 작물 데이터 조회
+        query = text("""
+            SELECT 
+                id,
+                crop_name,
+                region,
+                revenue_per_hour,
+                revenue_per_3_3m
+            FROM crop_data
+            ORDER BY crop_name
+        """)
+        
+        result = db.execute(query)
+        columns = result.keys()
+        data = [dict(zip(columns, row)) for row in result]
+        
+        return {
+            "success": True,
+            "data": data,
+            "message": "작물 데이터를 성공적으로 조회했습니다."
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/api/crop-data/{crop_name}")
+async def get_crop_data_by_name(crop_name: str):
+    """
+    특정 작물의 수익 데이터를 조회합니다.
+    """
+    try:
+        db = SessionLocal()
+        
+        # 특정 작물 데이터 조회
+        query = text("""
+            SELECT 
+                id,
+                crop_name,
+                region,
+                revenue_per_hour,
+                revenue_per_3_3m
+            FROM crop_data
+            WHERE crop_name = :crop_name
+            ORDER BY region
+        """)
+        
+        result = db.execute(query, {"crop_name": crop_name})
+        columns = result.keys()
+        data = [dict(zip(columns, row)) for row in result]
+        
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"'{crop_name}' 작물의 데이터를 찾을 수 없습니다."
+            )
+        
+        return {
+            "success": True,
+            "data": data,
+            "message": f"'{crop_name}' 작물 데이터를 성공적으로 조회했습니다."
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
     
