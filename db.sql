@@ -1,3 +1,4 @@
+-- 사용자 테이블 생성
 CREATE TABLE auth (
 	key integer NOT NULL,
 	email varchar(100) NULL,
@@ -6,12 +7,14 @@ CREATE TABLE auth (
 	created_at timestamp NULL
 );
 
+-- 판매 데이터 테이블 생성
 CREATE TABLE sales_data (
 	category varchar(50) NULL,
 	previous_year numeric NULL,
 	base_date numeric NULL
 );
 
+-- 게시글 테이블 생성
 CREATE TABLE write (
 	post_id integer NOT NULL,
 	user_id integer NOT NULL,
@@ -22,6 +25,7 @@ CREATE TABLE write (
 	community_type varchar NULL
 );
 
+-- 댓글 테이블 생성
 CREATE TABLE comments (
 	key integer NOT NULL,
 	post_id integer NOT NULL,
@@ -32,6 +36,7 @@ CREATE TABLE comments (
 	parent_id integer NULL
 );
 
+-- 시장 데이터 테이블 생성
 CREATE TABLE market_data (
 	year bigint NULL,
 	week bigint NULL,
@@ -71,6 +76,17 @@ CREATE TABLE market_data (
 	포도 double precision NULL
 );
 
+-- 작물 캘린더 테이블 생성
+CREATE TABLE growth_calendar (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    region VARCHAR(100) NOT NULL,
+    crop VARCHAR(100) NOT NULL,
+    growth_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES auth(user_id) ON DELETE CASCADE
+);
+
 ALTER TABLE auth ADD CONSTRAINT pk_auth PRIMARY KEY (key);
 
 ALTER TABLE write ADD CONSTRAINT pk_write PRIMARY KEY (post_id, user_id);
@@ -82,3 +98,5 @@ ALTER TABLE write ADD CONSTRAINT fk_auth_to_write_1 FOREIGN KEY (user_id) REFERE
 ALTER TABLE comments ADD CONSTRAINT fk_auth_to_comments_1 FOREIGN KEY (post_id) REFERENCES auth (key);
 
 ALTER TABLE comments ADD CONSTRAINT fk_write_to_comments_1 FOREIGN KEY (user_id) REFERENCES write (user_id);
+
+ALTER TABLE growth_calendar ADD CONSTRAINT fk_auth_to_growth_calendar_1 FOREIGN KEY (user_id) REFERENCES auth (key);

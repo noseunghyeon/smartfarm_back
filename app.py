@@ -114,7 +114,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # JWT 설정
 SECRET_KEY = JWT_SECRET
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60
 
 # 모델 정의
 class Token(BaseModel):
@@ -1525,6 +1525,26 @@ async def get_crop_data_by_name(crop_name: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+@app.post("/auth/refresh")
+async def refresh_token(current_user: str = Depends(get_current_user)):
+    try:
+        # 현재 사용자의 이메일로 새 토큰 생성
+        token_data = {
+            "sub": current_user,
+            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        }
+        new_token = create_access_token(token_data)
+        
+        return {
+            "success": True,
+            "data": {
+                "newToken": new_token,
+                "token_type": "bearer"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
