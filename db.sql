@@ -116,3 +116,89 @@ ALTER TABLE comments ADD CONSTRAINT fk_auth_to_comments_1 FOREIGN KEY (post_id) 
 ALTER TABLE comments ADD CONSTRAINT fk_write_to_comments_1 FOREIGN KEY (user_id) REFERENCES write (user_id);
 
 ALTER TABLE growth_calendar ADD CONSTRAINT fk_auth_to_growth_calendar_1 FOREIGN KEY (user_id) REFERENCES auth (key);
+
+-- 작물 테이블 생성
+CREATE TABLE IF NOT EXISTS crops (
+    id INT PRIMARY KEY,
+    crop_name VARCHAR(50) NOT NULL,
+    revenue_per_3_3m DECIMAL(10,2),
+    revenue_per_hour DECIMAL(10,2),
+    annual_sales DECIMAL(10,2),
+    total_cost DECIMAL(10,2)
+);
+
+-- 작물 경영비 상세 테이블 생성
+CREATE TABLE IF NOT EXISTS crop_costs (
+    id SERIAL PRIMARY KEY,
+    crop_id INT NOT NULL,
+    cost_type VARCHAR(50) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (crop_id) REFERENCES crops(id)
+);
+
+-- crops 테이블에 기본 데이터 입력
+INSERT INTO crops (id, crop_name, revenue_per_3_3m, revenue_per_hour, annual_sales, total_cost) 
+VALUES 
+(1, '감자', 16153, 60028, 1615298, 834715),
+(2, '고구마', 12666, 44500, 1266574, 603671),
+(3, '당근', 13304, 44175, 1330337, 707891);
+
+-- crop_costs 테이블에 경영비 상세 데이터 입력
+INSERT INTO crop_costs (crop_id, cost_type, amount) 
+VALUES 
+-- 감자 경영비 상세
+(1, '종자종묘비', 9273),
+(1, '비료비', 32791),
+(1, '농약비', 18040),
+(1, '수도광열비', 117085),
+(1, '기타재료비', 160415),
+(1, '영농시설비', 50323),
+(1, '수리유지비', 17223),
+(1, '제재료비', 13611),
+(1, '소농구비', 1503),
+(1, '대농구상각비', 45486),
+(1, '영농시설상각비', 104286),
+(1, '수리유지비', 799),
+(1, '기타자재비', 981),
+(1, '수선(기계-시설)장비료', 177834),
+(1, '토지임차료', 58030),
+(1, '고용노동비', 7553),
+(1, '위탁영농비', 177098),
+(1, '판매및운송비', 122067),
+(1, '기타비용', 21207),
+(1, '농작물재해보험료', 19774),
+(1, '농기계보험료', 10137),
+
+-- 고구마 경영비 상세
+(2, '종자종묘비', 16031),
+(2, '비료비', 66121),
+(2, '농약비', 1503),
+(2, '수도광열비', 57864),
+(2, '농구비', 33976),
+(2, '영농시설비', 3694),
+(2, '수리유지비', 3337),
+(2, '제재료비', 5280),
+(2, '소농구비', 58030),
+(2, '대농구상각비', 7553),
+(2, '영농시설상각비', 177098),
+(2, '수리유지비', 122067),
+(2, '기타자재비', 21207),
+(2, '수선(기계-시설)장비료', 19774),
+(2, '토지임차료', 10137),
+
+-- 당근 경영비 상세
+(3, '종자종묘비', 19028),
+(3, '비료비', 69076),
+(3, '농약비', 208),
+(3, '수도광열비', 61033),
+(3, '농구비', 40413),
+(3, '영농시설비', 10710),
+(3, '수리유지비', 1095),
+(3, '제재료비', 3635),
+(3, '소농구비', 63708),
+(3, '대농구상각비', 30505),
+(3, '영농시설상각비', 214234),
+(3, '수리유지비', 75144),
+(3, '기타자재비', 37743),
+(3, '수선(기계-시설)장비료', 49995),
+(3, '토지임차료', 31365);

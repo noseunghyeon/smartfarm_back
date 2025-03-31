@@ -406,6 +406,14 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class CropData(BaseModel):
+    crop_name: str
+    revenue_per_3_3m: float
+    revenue_per_hour: float
+    annual_sales: float
+    total_cost: float
+    costs: Dict[str, float]
+
 @app.post("/auth/login")
 async def login(login_data: LoginData):
     try:
@@ -1430,21 +1438,25 @@ async def get_table_data(table_name: str):
 @app.get("/api/crop-data")
 async def get_crop_data():
     """
-    작물별 수익 데이터를 조회합니다.
+    모든 작물의 데이터를 조회합니다.
     """
     try:
         db = SessionLocal()
         
-        # 작물 데이터 조회
+        # 작물 기본 정보 조회
         query = text("""
             SELECT 
-                id,
-                crop_name,
-                region,
-                revenue_per_hour,
-                revenue_per_3_3m
-            FROM crop_data
-            ORDER BY crop_name
+                c.id,
+                c.crop_name,
+                c.revenue_per_3_3m,
+                c.revenue_per_hour,
+                c.annual_sales,
+                c.total_cost,
+                json_object_agg(cc.cost_type, cc.amount) as costs
+            FROM crops c
+            LEFT JOIN crop_costs cc ON c.id = cc.crop_id
+            GROUP BY c.id, c.crop_name, c.revenue_per_3_3m, c.revenue_per_hour, c.annual_sales, c.total_cost
+            ORDER BY c.crop_name
         """)
         
         result = db.execute(query)
@@ -1465,7 +1477,7 @@ async def get_crop_data():
 @app.get("/api/crop-data/{crop_name}")
 async def get_crop_data_by_name(crop_name: str):
     """
-    특정 작물의 수익 데이터를 조회합니다.
+    특정 작물의 데이터를 조회합니다.
     """
     try:
         db = SessionLocal()
@@ -1473,25 +1485,29 @@ async def get_crop_data_by_name(crop_name: str):
         # 특정 작물 데이터 조회
         query = text("""
             SELECT 
-                id,
-                crop_name,
-                region,
-                revenue_per_hour,
-                revenue_per_3_3m
-            FROM crop_data
-            WHERE crop_name = :crop_name
-            ORDER BY region
+                c.id,
+                c.crop_name,
+                c.revenue_per_3_3m,
+                c.revenue_per_hour,
+                c.annual_sales,
+                c.total_cost,
+                json_object_agg(cc.cost_type, cc.amount) as costs
+            FROM crops c
+            LEFT JOIN crop_costs cc ON c.id = cc.crop_id
+            WHERE c.crop_name = :crop_name
+            GROUP BY c.id, c.crop_name, c.revenue_per_3_3m, c.revenue_per_hour, c.annual_sales, c.total_cost
         """)
         
         result = db.execute(query, {"crop_name": crop_name})
-        columns = result.keys()
-        data = [dict(zip(columns, row)) for row in result]
+        row = result.fetchone()
         
-        if not data:
+        if not row:
             raise HTTPException(
                 status_code=404,
                 detail=f"'{crop_name}' 작물의 데이터를 찾을 수 없습니다."
             )
+            
+        data = dict(zip(result.keys(), row))
         
         return {
             "success": True,
@@ -1502,6 +1518,95 @@ async def get_crop_data_by_name(crop_name: str):
     except HTTPException as he:
         raise he
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.post("/api/crop-data")
+async def create_or_update_crop_data(crop_data: CropData):
+    """
+    새로운 작물 데이터를 추가하거나 기존 데이터를 업데이트합니다.
+    """
+    try:
+        db = SessionLocal()
+        
+        # 트랜잭션 시작
+        db.execute(text("BEGIN"))
+        
+        # 작물이 이미 존재하는지 확인
+        check_query = text("SELECT id FROM crops WHERE crop_name = :crop_name")
+        existing_crop = db.execute(check_query, {"crop_name": crop_data.crop_name}).scalar()
+        
+        if existing_crop:
+            # 기존 작물 정보 업데이트
+            update_query = text("""
+                UPDATE crops
+                SET revenue_per_3_3m = :revenue_per_3_3m,
+                    revenue_per_hour = :revenue_per_hour,
+                    annual_sales = :annual_sales,
+                    total_cost = :total_cost
+                WHERE crop_name = :crop_name
+                RETURNING id
+            """)
+            result = db.execute(update_query, {
+                "crop_name": crop_data.crop_name,
+                "revenue_per_3_3m": crop_data.revenue_per_3_3m,
+                "revenue_per_hour": crop_data.revenue_per_hour,
+                "annual_sales": crop_data.annual_sales,
+                "total_cost": crop_data.total_cost
+            })
+            crop_id = result.scalar()
+            
+            # 기존 경영비 삭제
+            db.execute(text("DELETE FROM crop_costs WHERE crop_id = :crop_id"), {"crop_id": crop_id})
+        else:
+            # 새로운 작물 추가
+            insert_query = text("""
+                INSERT INTO crops (
+                    crop_name, revenue_per_3_3m, revenue_per_hour, 
+                    annual_sales, total_cost
+                )
+                VALUES (
+                    :crop_name, :revenue_per_3_3m, :revenue_per_hour,
+                    :annual_sales, :total_cost
+                )
+                RETURNING id
+            """)
+            result = db.execute(insert_query, {
+                "crop_name": crop_data.crop_name,
+                "revenue_per_3_3m": crop_data.revenue_per_3_3m,
+                "revenue_per_hour": crop_data.revenue_per_hour,
+                "annual_sales": crop_data.annual_sales,
+                "total_cost": crop_data.total_cost
+            })
+            crop_id = result.scalar()
+        
+        # 경영비 정보 추가
+        for cost_type, amount in crop_data.costs.items():
+            cost_query = text("""
+                INSERT INTO crop_costs (crop_id, cost_type, amount)
+                VALUES (:crop_id, :cost_type, :amount)
+            """)
+            db.execute(cost_query, {
+                "crop_id": crop_id,
+                "cost_type": cost_type,
+                "amount": amount
+            })
+        
+        # 트랜잭션 커밋
+        db.execute(text("COMMIT"))
+        
+        return {
+            "success": True,
+            "message": f"작물 데이터가 성공적으로 {'업데이트' if existing_crop else '추가'}되었습니다.",
+            "data": {
+                "id": crop_id,
+                **crop_data.dict()
+            }
+        }
+        
+    except Exception as e:
+        db.execute(text("ROLLBACK"))
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
