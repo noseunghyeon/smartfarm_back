@@ -38,7 +38,12 @@ from services.write_service import WriteService
 from pathlib import Path
 from swagger import custom_openapi
 from fastapi.responses import FileResponse
+<<<<<<< HEAD
 from fastapi import Body
+=======
+from growthcalendar import GrowthCalendar
+from utils.apiUrl import fetchWeatherData
+>>>>>>> ed8a8be2f274081d35ce7573dceeff5bcf093cda
 
 app = FastAPI(
     title="농산물 가격 예측 API",
@@ -115,7 +120,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # JWT 설정
 SECRET_KEY = JWT_SECRET
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60
 
 # 모델 정의
 class Token(BaseModel):
@@ -1503,6 +1508,104 @@ async def get_crop_data_by_name(crop_name: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+@app.post("/auth/refresh")
+async def refresh_token(current_user: str = Depends(get_current_user)):
+    try:
+        # 현재 사용자의 이메일로 새 토큰 생성
+        token_data = {
+            "sub": current_user,
+            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        }
+        new_token = create_access_token(token_data)
+        
+        return {
+            "success": True,
+            "data": {
+                "newToken": new_token,
+                "token_type": "bearer"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    # GrowthCalendar 인스턴스 생성
+growth_calendar = GrowthCalendar()
+
+@app.get("/api/growth_calendar")
+async def get_growth_calendar(city: str = "서울", crop: str = "all", sowing_date: str = None, target_date: str = None):
+    try:
+        # 날씨 데이터 가져오기
+        weather_data = await fetchWeatherData(city)
+        
+        # 파종일과 대상 날짜 처리
+        if sowing_date:
+            sowing_date = datetime.strptime(sowing_date, "%Y-%m-%d").date()
+        
+        # 현재 날짜 기준으로 해당 월의 첫날과 마지막 날 계산
+        if target_date:
+            current_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+        else:
+            current_date = datetime.now().date()
+            
+        first_day = current_date.replace(day=1)
+        last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+        # 날씨 기반 가이드 생성
+        weather_guidance = []
+        
+        # 현재 날짜 기준으로 날씨 가이드 추가
+        today = datetime.now().date()
+        current = weather_data["current"]
+        weather_guidance.append({
+            "type": "weather",
+            "date": today.strftime("%Y-%m-%d"),
+            "temperature": current.get("avg temp", 0),
+            "rainfall": current.get("rainFall", 0),
+            "message": f"현재 날씨: {current.get('avg temp', 0)}°C"
+        })
+        
+        # 주간 날씨 가이드 추가 (현재 날짜부터)
+        for i, day in enumerate(weather_data["weekly"]):
+            future_date = today + timedelta(days=i)
+            weather_guidance.append({
+                "type": "weather",
+                "date": future_date.strftime("%Y-%m-%d"),
+                "temperature": day.get("avg temp", 0),
+                "rainfall": day.get("rainFall", 0),
+                "message": f"날씨 예보: {day.get('avg temp', 0)}°C"
+            })
+        
+        # 작물 가이드 초기화
+        crop_guidance = []
+        
+        # 파종일이 지정된 경우에만 작물 가이드 추가
+        if sowing_date and crop != "all":
+            # 해당 월의 모든 날짜에 대해 가이드 생성
+            current = first_day
+            while current <= last_day:
+                daily_guidance = growth_calendar.get_crop_guidance(
+                    crop_name=crop,
+                    sowing_date=sowing_date,
+                    target_date=current
+                )
+                crop_guidance.extend(daily_guidance)
+                current += timedelta(days=1)
+        
+        # 모든 가이드 합치기
+        all_guidance = weather_guidance + crop_guidance
+        
+        return {
+            "success": True,
+            "data": {
+                "guidance": all_guidance,
+                "weather": weather_data
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
