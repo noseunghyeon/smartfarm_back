@@ -39,5 +39,7 @@ uvicorn
 pillow
 requests
 numpy
+pydantic>=1.10.0 
+typing-extensions>=4.5.0 
 
 # python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
