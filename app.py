@@ -1625,6 +1625,167 @@ async def get_growth_calendar(city: str = "서울", crop: str = "all", sowing_da
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 캘린더 데이터 저장을 위한 Pydantic 모델
+class CalendarData(BaseModel):
+    region: str
+    crop: str
+    growth_date: str
+
+@app.post("/api/growth_calendar/save")
+async def save_growth_calendar(
+    calendar_data: CalendarData,
+    current_user: str = Depends(get_current_user)
+):
+    try:
+        db = SessionLocal()
+        
+        # 현재 사용자의 user_id 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 캘린더 데이터 저장
+        query = text("""
+            INSERT INTO growth_calendar (user_id, region, crop, growth_date)
+            VALUES (:user_id, :region, :crop, :growth_date)
+            RETURNING id, region, crop, growth_date, created_at
+        """)
+        
+        result = db.execute(
+            query,
+            {
+                "user_id": user_id,
+                "region": calendar_data.region,
+                "crop": calendar_data.crop,
+                "growth_date": calendar_data.growth_date
+            }
+        )
+        db.commit()
+        
+        saved_data = result.fetchone()
+        
+        return {
+            "success": True,
+            "data": {
+                "id": saved_data.id,
+                "region": saved_data.region,
+                "crop": saved_data.crop,
+                "growth_date": saved_data.growth_date.strftime('%Y-%m-%d'),
+                "created_at": saved_data.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            },
+            "message": "캘린더 데이터가 성공적으로 저장되었습니다."
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/api/growth_calendar/user")
+async def get_user_calendar(current_user: str = Depends(get_current_user)):
+    try:
+        db = SessionLocal()
+        
+        # 현재 사용자의 user_id 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 사용자의 캘린더 데이터 조회
+        query = text("""
+            SELECT id, region, crop, growth_date, created_at
+            FROM growth_calendar
+            WHERE user_id = :user_id
+            ORDER BY growth_date DESC
+        """)
+        
+        result = db.execute(query, {"user_id": user_id})
+        calendar_data = []
+        
+        for row in result:
+            calendar_data.append({
+                "id": row.id,
+                "region": row.region,
+                "crop": row.crop,
+                "growth_date": row.growth_date.strftime('%Y-%m-%d'),
+                "created_at": row.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return {
+            "success": True,
+            "data": calendar_data,
+            "message": "캘린더 데이터를 성공적으로 조회했습니다."
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.delete("/api/growth_calendar/{calendar_id}")
+async def delete_calendar_data(
+    calendar_id: int,
+    current_user: str = Depends(get_current_user)
+):
+    try:
+        db = SessionLocal()
+        
+        # 현재 사용자의 user_id 조회
+        user_query = text("SELECT user_id FROM auth WHERE email = :email")
+        user_result = db.execute(user_query, {"email": current_user})
+        user_id = user_result.scalar()
+        
+        if not user_id:
+            raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+        
+        # 캘린더 데이터가 현재 사용자의 것인지 확인
+        check_query = text("""
+            SELECT id FROM growth_calendar 
+            WHERE id = :calendar_id AND user_id = :user_id
+        """)
+        result = db.execute(check_query, {
+            "calendar_id": calendar_id,
+            "user_id": user_id
+        })
+        
+        if not result.scalar():
+            raise HTTPException(
+                status_code=404, 
+                detail="해당 캘린더 데이터를 찾을 수 없거나 삭제 권한이 없습니다"
+            )
+        
+        # 캘린더 데이터 삭제
+        delete_query = text("""
+            DELETE FROM growth_calendar 
+            WHERE id = :calendar_id AND user_id = :user_id
+        """)
+        
+        db.execute(delete_query, {
+            "calendar_id": calendar_id,
+            "user_id": user_id
+        })
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "캘린더 데이터가 성공적으로 삭제되었습니다",
+            "data": {"id": calendar_id}
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
