@@ -1765,6 +1765,70 @@ async def delete_calendar_data(
     finally:
         db.close()
 
+# 가격 데이터 저장 API
+@app.post("/api/price/save")
+async def save_price_data(price_data: List[Dict]):
+    try:
+        # 기존 데이터 삭제
+        db.execute(text("DELETE FROM price_data"))
+        
+        # 새로운 데이터 저장
+        for item in price_data:
+            db.execute(
+                text("""
+                    INSERT INTO price_data (
+                        item_name, price, unit, date, previous_date,
+                        price_change, yesterday_price, category_code,
+                        category_name, has_dpr1
+                    ) VALUES (
+                        :item_name, :price, :unit, :date, :previous_date,
+                        :price_change, :yesterday_price, :category_code,
+                        :category_name, :has_dpr1
+                    )
+                """),
+                {
+                    "item_name": item["item_name"],
+                    "price": item["price"],
+                    "unit": item["unit"],
+                    "date": item["date"],
+                    "previous_date": item["previous_date"],
+                    "price_change": item["price_change"],
+                    "yesterday_price": item["yesterday_price"],
+                    "category_code": item["category_code"],
+                    "category_name": item["category_name"],
+                    "has_dpr1": item["has_dpr1"]
+                }
+            )
+        
+        db.commit()
+        return {"message": "가격 데이터가 성공적으로 저장되었습니다."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 가격 데이터 조회 API
+@app.get("/api/price/from-db")
+async def get_price_data_from_db():
+    try:
+        result = db.execute(text("SELECT * FROM price_data"))
+        price_data = []
+        for row in result:
+            price_data.append({
+                "item_name": row.item_name,
+                "price": row.price,
+                "unit": row.unit,
+                "date": row.date.strftime("%Y-%m-%d"),
+                "previous_date": row.previous_date.strftime("%Y-%m-%d"),
+                "price_change": row.price_change,
+                "yesterday_price": row.yesterday_price,
+                "category_code": row.category_code,
+                "category_name": row.category_name,
+                "has_dpr1": row.has_dpr1
+            })
+        return {"data": {"item": price_data}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     print("Main Server is running on port 8000")
     

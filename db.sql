@@ -87,6 +87,22 @@ CREATE TABLE growth_calendar (
     FOREIGN KEY (user_id) REFERENCES auth(user_id) ON DELETE CASCADE
 );
 
+-- 가격 데이터 테이블 생성
+CREATE TABLE price_data (
+    id SERIAL PRIMARY KEY,
+    item_name VARCHAR(100) NOT NULL,
+    price VARCHAR(50) NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    date DATE NOT NULL,
+    previous_date DATE NOT NULL,
+    price_change INTEGER NOT NULL,
+    yesterday_price INTEGER NOT NULL,
+    category_code VARCHAR(10) NOT NULL,
+    category_name VARCHAR(50) NOT NULL,
+    has_dpr1 BOOLEAN NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 ALTER TABLE auth ADD CONSTRAINT pk_auth PRIMARY KEY (key);
 
 ALTER TABLE write ADD CONSTRAINT pk_write PRIMARY KEY (post_id, user_id);
