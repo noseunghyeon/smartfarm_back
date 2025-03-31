@@ -9,6 +9,7 @@ import json
 import os
 from datetime import datetime, timedelta
 import joblib
+import logging
 
 def create_price_predictor(crop_name):
     try:
