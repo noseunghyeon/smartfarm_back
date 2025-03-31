@@ -38,12 +38,9 @@ from services.write_service import WriteService
 from pathlib import Path
 from swagger import custom_openapi
 from fastapi.responses import FileResponse
-<<<<<<< HEAD
 from fastapi import Body
-=======
 from growthcalendar import GrowthCalendar
 from utils.apiUrl import fetchWeatherData
->>>>>>> ed8a8be2f274081d35ce7573dceeff5bcf093cda
 
 app = FastAPI(
     title="농산물 가격 예측 API",
