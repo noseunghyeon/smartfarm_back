@@ -114,7 +114,7 @@ CREATE TABLE "price_data" (
 	"price"	character varying(50)		NULL,
 	"unit"	character varying(20)		NULL,
 	"date"	date		NULL,
-	"field"	integer		NULL,
+	"previous_date"	date		NULL,
 	"price_change"	integer		NULL,
 	"yesterday_price"	integer		NULL,
 	"category_code"	character varying(10)		NULL,
