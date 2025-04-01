@@ -5,6 +5,7 @@ import logging
 from typing import Optional, Dict, Any
 from enum import Enum
 import json
+from datetime import datetime
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
@@ -30,7 +31,7 @@ def get_youth_list(
     s_code: SCode = SCode.YOUNG_FARMER_VIDEO,
     search_keyword: Optional[str] = None,
     cp: Optional[int] = None,
-    row_cnt: Optional[int] = None,
+    row_cnt: Optional[int] = 200,  # 기본값을 충분히 큰 수로 설정
     type_dv: ContentType = ContentType.JSON
 ) -> Dict[str, Any]:
     """
@@ -49,15 +50,14 @@ def get_youth_list(
         params = {
             'serviceKey': YOUNG_API_KEY,
             'sCode': s_code.value,
-            'typeDv': type_dv.value
+            'typeDv': type_dv.value,
+            'rowCnt': str(row_cnt)  # 항상 row_cnt 파라미터 포함
         }
 
         if search_keyword:
             params['search_keyword'] = search_keyword
         if cp:
             params['cp'] = str(cp)
-        if row_cnt:
-            params['rowCnt'] = str(row_cnt)
 
         logger.info("청년사례 목록 조회 요청")
         logger.debug(f"Request URL: {url}")
@@ -202,7 +202,7 @@ def get_edu_list(
     type_dv: str = "json",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    row_cnt: int = 10
+    row_cnt: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     청년농 교육 정보 목록 조회
@@ -212,28 +212,24 @@ def get_edu_list(
         type_dv (str): 응답 형식 (기본값: "json")
         start_date (str): 신청 시작일 (YYYY-MM-DD)
         end_date (str): 신청 마감일 (YYYY-MM-DD)
-        row_cnt (int): 가져올 row 수 (기본값: 10)
+        row_cnt (Optional[int]): 가져올 row 수 (기본값: None - 모든 데이터 조회)
     """
     try:
         if not YOUNG_API_KEY:
             raise ValueError("YOUNG_API_KEY가 설정되지 않았습니다.")
 
-        # 현재 날짜를 기본값으로 사용
-        if not start_date:
-            start_date = datetime.now().strftime("%Y-%m-%d")
-        if not end_date:
-            end_date = datetime.now().strftime("%Y-%m-%d")
-
         params = {
             'serviceKey': YOUNG_API_KEY,
             'search_category': search_category,
             'typeDv': type_dv,
-            'sd': start_date,
-            'ed': end_date,
-            'rowCnt': str(row_cnt)
+            'sd': start_date or datetime.now().strftime("%Y-%m-%d"),
+            'ed': end_date or datetime.now().strftime("%Y-%m-%d")
         }
 
-        url = f"https://www.rda.go.kr/young/api/eduList"
+        if row_cnt:
+            params['rowCnt'] = str(row_cnt)
+
+        url = "https://www.rda.go.kr/young/api/eduList"
         
         logger.info("청년농 교육 정보 목록 조회 요청")
         logger.debug(f"Request URL: {url}")

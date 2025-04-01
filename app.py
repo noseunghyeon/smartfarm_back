@@ -1943,11 +1943,13 @@ async def get_price_data_from_db():
 @app.get("/api/youth/list")
 def youth_list(
     s_code: str = SCode.YOUNG_FARMER_VIDEO.value,
-    type_dv: str = ContentType.JSON.value
+    type_dv: str = ContentType.JSON.value,
+    row_cnt: Optional[int] = 200  # 전체 데이터를 가져오기 위해 충분히 큰 값으로 설정
 ):
     return get_youth_list(
         s_code=SCode(s_code),
-        type_dv=ContentType(type_dv)
+        type_dv=ContentType(type_dv),
+        row_cnt=row_cnt  # row_cnt 파라미터 추가
     )
 
 @app.get("/api/youth/view")
@@ -1972,7 +1974,7 @@ async def get_young_edu_list(
     search_category: str = "교육",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    row_cnt: int = 10
+    row_cnt: Optional[int] = None
 ):
     """
     청년농 교육 정보 목록 조회 엔드포인트
