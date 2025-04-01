@@ -41,6 +41,7 @@ from fastapi.responses import FileResponse
 from fastapi import Body
 from growthcalendar import GrowthCalendar
 from utils.apiUrl import fetchWeatherData
+from young_api import get_youth_list, get_youth_detail, get_edu_list, ContentType, SCode
 
 app = FastAPI(
     title="농산물 가격 예측 API",
@@ -1932,6 +1933,63 @@ async def get_price_data_from_db():
             })
         return {"data": {"item": price_data}}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/youth/list")
+def youth_list(
+    s_code: str = SCode.YOUNG_FARMER_VIDEO.value,
+    type_dv: str = ContentType.JSON.value
+):
+    return get_youth_list(
+        s_code=SCode(s_code),
+        type_dv=ContentType(type_dv)
+    )
+
+@app.get("/api/youth/view")
+async def get_youth_view(s_code: str, seq: str):
+    """
+    청년농업인 상세 정보 조회 엔드포인트
+    
+    Args:
+        s_code: 분류코드 (01: 청년농영상, 02: 청년농소개, 03: 기술우수사례, 04: 극복·실패사례)
+        seq: 게시글 번호
+    """
+    try:
+        result = get_youth_detail(s_code=s_code, seq=seq)
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result["message"])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/young/edu")
+async def get_young_edu_list(
+    search_category: str = "교육",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    row_cnt: int = 10
+):
+    """
+    청년농 교육 정보 목록 조회 엔드포인트
+    """
+    try:
+        result = get_edu_list(
+            search_category=search_category,
+            start_date=start_date,
+            end_date=end_date,
+            row_cnt=row_cnt
+        )
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=500, 
+                detail=result.get("message", "API 호출 실패")
+            )
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"API 호출 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
