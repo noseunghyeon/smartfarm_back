@@ -1878,43 +1878,127 @@ async def delete_calendar_data(
 # 가격 데이터 저장 API
 @app.post("/api/price/save")
 async def save_price_data(price_data: List[Dict]):
+    """가격 데이터를 데이터베이스에 저장합니다."""
     try:
-        # 기존 데이터 삭제
-        db.execute(text("DELETE FROM price_data"))
+        db = SessionLocal()
         
-        # 새로운 데이터 저장
+        # 고유 제약조건 추가
+        try:
+            db.execute(text("""
+                ALTER TABLE price_data 
+                ADD CONSTRAINT price_data_item_name_date_key 
+                UNIQUE (item_name, date)
+            """))
+            db.commit()
+        except Exception as e:
+            logger.info(f"고유 제약조건이 이미 존재합니다: {str(e)}")
+            db.rollback()
+
         for item in price_data:
-            db.execute(
-                text("""
-                    INSERT INTO price_data (
-                        item_name, price, unit, date, previous_date,
-                        price_change, yesterday_price, category_code,
-                        category_name, has_dpr1
-                    ) VALUES (
-                        :item_name, :price, :unit, :date, :previous_date,
-                        :price_change, :yesterday_price, :category_code,
-                        :category_name, :has_dpr1
-                    )
-                """),
-                {
-                    "item_name": item["item_name"],
-                    "price": item["price"],
-                    "unit": item["unit"],
-                    "date": item["date"],
-                    "previous_date": item["previous_date"],
-                    "price_change": item["price_change"],
-                    "yesterday_price": item["yesterday_price"],
-                    "category_code": item["category_code"],
-                    "category_name": item["category_name"],
-                    "has_dpr1": item["has_dpr1"]
-                }
-            )
+            # 데이터 유효성 검사
+            if not all(key in item for key in ['item_name', 'price', 'date', 'category_code']):
+                logger.error(f"필수 필드 누락: {item}")
+                continue
+
+            # 날짜 형식 변환
+            try:
+                import re
+                date_str = re.sub(r'[()]', '', item['date'])
+                logger.info(f"처리할 날짜 문자열: {date_str}")
+                
+                # '당일 MM/DD' 형식 처리
+                if date_str.startswith('당일'):
+                    today = datetime.now()
+                    logger.info(f"현재 날짜: {today}")
+                    month, day = map(int, date_str.split()[1].split('/'))
+                    logger.info(f"추출된 월/일: {month}/{day}")
+                    try:
+                        date_obj = today.replace(month=month, day=day).date()
+                        logger.info(f"당일 형식 처리 성공: {date_obj}")
+                    except ValueError as ve:
+                        logger.error(f"날짜 생성 실패: {str(ve)}")
+                        continue
+                else:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    logger.info(f"일반 형식 처리: {date_obj}")
+            except Exception as e:
+                logger.error(f"날짜 형식 변환 실패: {item['date']}, 오류: {str(e)}")
+                continue
+
+            # 가격 데이터 정제
+            price = item['price'].replace(',', '')
+            price_change = item.get('price_change', 0)
+            yesterday_price = item.get('yesterday_price', 0)
+
+            # previous_date 처리
+            previous_date_str = item.get('previous_date')
+            previous_date_obj = None
+            
+            if previous_date_str:
+                try:
+                    if '일전' in previous_date_str:
+                        # "N일전 MM/DD" 형식 처리
+                        days_ago = int(previous_date_str.split('일전')[0])
+                        month, day = map(int, previous_date_str.split()[1].split('/'))
+                        current_date = datetime.now().date()
+                        previous_date_obj = current_date.replace(month=month, day=day) - timedelta(days=days_ago)
+                    else:
+                        # "YYYY-MM-DD" 형식 처리
+                        previous_date_obj = datetime.strptime(previous_date_str, "%Y-%m-%d").date()
+                except Exception as e:
+                    logger.error(f"이전 날짜 변환 중 오류 발생: {str(e)}")
+                    # previous_date 변환 실패 시 null로 처리
+                    previous_date_obj = None
+
+            # SQL 쿼리 실행
+            query = text("""
+                INSERT INTO price_data (
+                    item_name, price, unit, date, previous_date, price_change, 
+                    yesterday_price, category_code, category_name, 
+                    has_dpr1, created_at
+                ) VALUES (:item_name, :price, :unit, :date, :previous_date, :price_change, 
+                    :yesterday_price, :category_code, :category_name, 
+                    :has_dpr1, NOW())
+                ON CONFLICT (item_name, date) 
+                DO UPDATE SET 
+                    price = EXCLUDED.price,
+                    unit = EXCLUDED.unit,
+                    previous_date = EXCLUDED.previous_date,
+                    price_change = EXCLUDED.price_change,
+                    yesterday_price = EXCLUDED.yesterday_price,
+                    category_code = EXCLUDED.category_code,
+                    category_name = EXCLUDED.category_name,
+                    has_dpr1 = EXCLUDED.has_dpr1
+            """)
+            
+            db.execute(query, {
+                "item_name": item['item_name'],
+                "price": price,
+                "unit": item.get('unit', ''),
+                "date": date_obj,
+                "previous_date": previous_date_obj,
+                "price_change": price_change,
+                "yesterday_price": yesterday_price,
+                "category_code": item['category_code'],
+                "category_name": item.get('category_name', ''),
+                "has_dpr1": item.get('has_dpr1', False)
+            })
         
         db.commit()
-        return {"message": "가격 데이터가 성공적으로 저장되었습니다."}
+        return {
+            "success": True,
+            "message": "가격 데이터가 성공적으로 저장되었습니다."
+        }
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"가격 데이터 저장 중 오류 발생: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"가격 데이터 저장 중 오류가 발생했습니다: {str(e)}"
+        )
+    finally:
+        db.close()
 
 # 가격 데이터 조회 API
 @app.get("/api/price/from-db")

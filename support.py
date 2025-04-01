@@ -19,8 +19,6 @@ BASE_URL = "https://www.rda.go.kr/young/api"
 async def get_support_programs() -> List[Dict]:
     """농업 지원사업 정보를 가져오는 함수"""
     try:
-        logger.info(f"API Key: {INFOMATION_API_KEY}")
-        
         # API 엔드포인트 설정
         endpoint = f"{BASE_URL}/policyList"
         
@@ -31,13 +29,8 @@ async def get_support_programs() -> List[Dict]:
             "rowCnt": 30
         }
         
-        logger.info(f"Requesting URL: {endpoint}")
-        logger.info(f"Parameters: {params}")
-        
         # API 요청
         response = requests.get(endpoint, params=params)
-        logger.info(f"Response status code: {response.status_code}")
-        logger.info(f"Response content: {response.text[:200]}...")
         
         if response.status_code == 200:
             try:
@@ -95,12 +88,7 @@ async def get_support_detail(content_id: str) -> Dict:
             "seq": content_id
         }
         
-        logger.info(f"Requesting URL: {endpoint}")
-        logger.info(f"Parameters: {params}")
-        
         response = requests.get(endpoint, params=params)
-        logger.info(f"Response status code: {response.status_code}")
-        logger.info(f"Response content: {response.text[:200]}...")
         
         if response.status_code == 200:
             try:
@@ -154,8 +142,6 @@ async def get_education_programs() -> List[Dict]:
         }
         
         response = requests.get(endpoint, params=params)
-        logger.info(f"Response status code: {response.status_code}")
-        logger.info(f"Response content: {response.text[:200]}...")
         
         if response.status_code == 200:
             try:
@@ -222,13 +208,11 @@ async def get_education_detail(edu_id: str):
             "format": "json"
         }
         
-        logging.info(f"Requesting education detail with params: {params}")
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params)
             response.raise_for_status()
             
             data = response.json()
-            logging.info(f"Education detail response: {data}")
             
             if "body" not in data:
                 raise ValueError("응답에 body 필드가 없습니다")
@@ -244,7 +228,6 @@ async def get_education_detail(edu_id: str):
             
             for field in required_fields:
                 if field not in edu_data:
-                    logging.warning(f"Missing required field: {field}")
                     edu_data[field] = "정보 없음"
             
             return {
@@ -268,8 +251,8 @@ async def get_education_detail(edu_id: str):
             }
             
     except httpx.HTTPError as e:
-        logging.error(f"HTTP error in get_education_detail: {str(e)}")
+        logger.error(f"HTTP error in get_education_detail: {str(e)}")
         raise HTTPException(status_code=500, detail=f"교육 프로그램 정보 조회 실패: {str(e)}")
     except Exception as e:
-        logging.error(f"Error in get_education_detail: {str(e)}")
+        logger.error(f"Error in get_education_detail: {str(e)}")
         raise HTTPException(status_code=500, detail=f"교육 프로그램 정보 처리 실패: {str(e)}")
