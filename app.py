@@ -41,7 +41,11 @@ from fastapi.responses import FileResponse
 from fastapi import Body
 from growthcalendar import GrowthCalendar
 from utils.apiUrl import fetchWeatherData
+
 from young_api import get_youth_list, get_youth_detail, get_edu_list, ContentType, SCode
+
+from support import get_support_programs, get_support_detail, get_education_programs, get_education_detail
+
 
 app = FastAPI(
     title="농산물 가격 예측 API",
@@ -1935,6 +1939,7 @@ async def get_price_data_from_db():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/youth/list")
 def youth_list(
     s_code: str = SCode.YOUNG_FARMER_VIDEO.value,
@@ -1990,6 +1995,60 @@ async def get_young_edu_list(
         
     except Exception as e:
         logger.error(f"API 호출 중 오류 발생: {str(e)}")
+
+# 지원사업 API 엔드포인트
+@app.get("/api/support/programs")
+async def get_programs():
+    """지원사업 목록을 반환합니다."""
+    try:
+        programs = await get_support_programs()
+        return {
+            "success": True,
+            "data": programs,
+            "message": "지원사업 목록을 성공적으로 가져왔습니다."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/support/detail/{content_id}")
+async def get_program_detail(content_id: str):
+    """특정 지원사업의 상세 정보를 반환합니다."""
+    try:
+        detail = await get_support_detail(content_id)
+        return {
+            "success": True,
+            "data": detail,
+            "message": "지원사업 상세 정보를 성공적으로 가져왔습니다."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 교육 프로그램 API 엔드포인트
+@app.get("/api/education/programs")
+async def get_edu_programs():
+    """교육 프로그램 목록을 반환합니다."""
+    try:
+        programs = await get_education_programs()
+        return {
+            "success": True,
+            "data": programs,
+            "message": "교육 프로그램 목록을 성공적으로 가져왔습니다."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/education/detail/{edu_id}")
+async def get_edu_detail(edu_id: str):
+    """교육 프로그램 상세 정보를 반환합니다."""
+    try:
+        detail = await get_education_detail(edu_id)
+        return {
+            "success": True,
+            "data": detail,
+            "message": "교육 프로그램 상세 정보를 성공적으로 가져왔습니다."
+        }
+    except Exception as e:
+
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
