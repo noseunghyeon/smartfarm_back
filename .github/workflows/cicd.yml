@@ -69,14 +69,20 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Check if Docker is installed
+            # Check if Docker is installed and fix permissions
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               sudo snap install docker
-              sudo groupadd docker || true
-              sudo usermod -aG docker ubuntu
-              sudo snap start docker
             fi
+
+            # Setup Docker permissions
+            sudo groupadd docker || true
+            sudo usermod -aG docker ubuntu
+            sudo chown root:docker /var/run/docker.sock || true
+            sudo chmod 666 /var/run/docker.sock || true
+
+            # Restart Docker service
+            sudo systemctl restart snap.docker.dockerd || true
 
             # Create app directory if it doesn't exist
             if [ ! -d "/home/ubuntu/app" ]; then
@@ -90,6 +96,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Ensure Docker socket permissions are correct
+            sudo chmod 666 /var/run/docker.sock
+
             cd /home/ubuntu/app
             docker-compose -f docker-compose.prod.yml down || true
             docker pull roseunghyeon/smartfarm-back:latest
