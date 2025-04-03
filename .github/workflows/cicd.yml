@@ -69,30 +69,40 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Clean up disk space
-            echo "Cleaning up disk space..."
-            sudo docker system prune -af --volumes
-            sudo rm -rf /var/snap/docker/common/var-lib-docker/tmp/*
-            sudo apt-get clean
-            sudo journalctl --vacuum-time=1d
+            # Remove existing Docker installation
+            echo "Removing existing Docker installation..."
+            sudo snap remove docker || true
+            sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
+            sudo apt-get update
 
-            # Check available space
-            df -h
+            # Install Docker using apt
+            echo "Installing Docker using apt..."
+            sudo apt-get install -y ca-certificates curl gnupg
+            sudo install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            sudo chmod a+r /etc/apt/keyrings/docker.gpg
+            echo \
+              "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+              "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+              sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-            # Check if Docker is installed and fix permissions
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo snap install docker
-            fi
+            # Start and enable Docker service
+            echo "Starting Docker service..."
+            sudo systemctl start docker
+            sudo systemctl enable docker
 
             # Setup Docker permissions
+            echo "Setting up Docker permissions..."
             sudo groupadd docker || true
             sudo usermod -aG docker ubuntu
-            sudo chown root:docker /var/run/docker.sock || true
-            sudo chmod 666 /var/run/docker.sock || true
+            sudo systemctl restart docker
 
-            # Restart Docker service
-            sudo systemctl restart snap.docker.dockerd || true
+            # Verify Docker is running
+            echo "Verifying Docker installation..."
+            sudo docker --version
+            sudo docker ps
 
             # Create app directory if it doesn't exist
             if [ ! -d "/home/ubuntu/app" ]; then
@@ -106,15 +116,16 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Verify Docker is running
+            echo "Verifying Docker service..."
+            sudo systemctl status docker
+
             # Clean up old containers and images
             echo "Cleaning up old containers and images..."
-            docker container prune -f
-            docker image prune -af
-
-            # Ensure Docker socket permissions are correct
-            sudo chmod 666 /var/run/docker.sock
+            sudo docker container prune -f
+            sudo docker image prune -af
 
             cd /home/ubuntu/app
-            docker-compose -f docker-compose.prod.yml down || true
-            docker pull roseunghyeon/smartfarm-back:latest
-            docker-compose -f docker-compose.prod.yml up -d
+            sudo docker-compose -f docker-compose.prod.yml down || true
+            sudo docker pull roseunghyeon/smartfarm-back:latest
+            sudo docker-compose -f docker-compose.prod.yml up -d
