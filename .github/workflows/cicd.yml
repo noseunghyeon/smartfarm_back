@@ -62,17 +62,31 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Check EC2 setup and clean disk space
+      - name: Clean EC2 and setup Docker
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Remove existing Docker installation
+            # Aggressive disk cleanup
+            echo "Performing aggressive disk cleanup..."
+            sudo apt-get clean
+            sudo apt-get autoremove -y
+            sudo journalctl --vacuum-time=1d
+            sudo rm -rf /var/lib/docker/tmp/*
+            sudo rm -rf /var/cache/apt/*
+            sudo rm -rf /var/lib/apt/lists/*
+
+            # Remove existing Docker completely
             echo "Removing existing Docker installation..."
+            sudo systemctl stop docker || true
+            sudo systemctl stop docker.socket || true
             sudo snap remove docker || true
             sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
+            sudo apt-get purge -y docker-ce docker-ce-cli containerd.io docker-compose-plugin || true
+            sudo rm -rf /var/lib/docker
+            sudo rm -rf /var/lib/containerd
             sudo apt-get update
 
             # Install Docker using apt
@@ -99,10 +113,9 @@ jobs:
             sudo usermod -aG docker ubuntu
             sudo systemctl restart docker
 
-            # Verify Docker is running
-            echo "Verifying Docker installation..."
-            sudo docker --version
-            sudo docker ps
+            # Check disk space
+            echo "Checking disk space..."
+            df -h
 
             # Create app directory if it doesn't exist
             if [ ! -d "/home/ubuntu/app" ]; then
@@ -116,14 +129,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Verify Docker is running
-            echo "Verifying Docker service..."
+            # Final cleanup before deployment
+            echo "Final cleanup before deployment..."
             sudo systemctl status docker
-
-            # Clean up old containers and images
-            echo "Cleaning up old containers and images..."
-            sudo docker container prune -f
-            sudo docker image prune -af
+            sudo docker system prune -af
+            sudo docker volume prune -f
 
             cd /home/ubuntu/app
             sudo docker-compose -f docker-compose.prod.yml down || true
