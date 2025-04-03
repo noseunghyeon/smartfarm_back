@@ -1,0 +1,63 @@
+name: SmartFarm Backend CICD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          touch .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}" >> .env
+          echo "KMA_API_KEY=${{ secrets.KMA_API_KEY }}" >> .env
+          echo "KAMIS_API_KEY=${{ secrets.KAMIS_API_KEY }}" >> .env
+          echo "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}" >> .env
+          echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" >> .env
+          echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
+          echo "MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}" >> .env
+          echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
+          echo "MAIL_FROM=${{ secrets.MAIL_FROM }}" >> .env
+          echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env
+          echo "MAIL_SERVER=${{ secrets.MAIL_SERVER }}" >> .env
+          echo "YOUNG_API_KEY=${{ secrets.YOUNG_API_KEY }}" >> .env
+          echo "INFOMATION_API_KEY=${{ secrets.INFOMATION_API_KEY }}" >> .env
+          echo "TAVILY_API_KEY=${{ secrets.TAVILY_API_KEY }}" >> .env
+
+      - name: Sign in to Docker Hub
+        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: docker build -t roseunghyeon/smartfarm-back .
+
+      - name: Push Docker Image
+        run: docker push roseunghyeon/smartfarm-back:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/app
+            docker-compose -f docker-compose.prod.yml down
+            docker pull roseunghyeon/smartfarm-back:latest
+            docker-compose -f docker-compose.prod.yml up -d
