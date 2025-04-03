@@ -28,4 +28,10 @@ cd /home/ubuntu/app
 # 필요한 파일 복사
 # .env 파일은 별도로 생성 필요
 
+# SSH 키 설정
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+touch ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+
 echo "설치가 완료되었습니다. 시스템을 재시작하거나 새로운 세션을 시작하세요." 
