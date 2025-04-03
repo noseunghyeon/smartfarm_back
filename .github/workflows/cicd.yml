@@ -62,13 +62,23 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Check EC2 setup
+      - name: Check EC2 setup and clean disk space
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Clean up disk space
+            echo "Cleaning up disk space..."
+            sudo docker system prune -af --volumes
+            sudo rm -rf /var/snap/docker/common/var-lib-docker/tmp/*
+            sudo apt-get clean
+            sudo journalctl --vacuum-time=1d
+
+            # Check available space
+            df -h
+
             # Check if Docker is installed and fix permissions
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
@@ -96,6 +106,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Clean up old containers and images
+            echo "Cleaning up old containers and images..."
+            docker container prune -f
+            docker image prune -af
+
             # Ensure Docker socket permissions are correct
             sudo chmod 666 /var/run/docker.sock
 
